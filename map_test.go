@@ -34,7 +34,7 @@ func TestSimple(t *testing.T) {
 func TestMany(t *testing.T) {
 	c := cuckoo.New()
 
-	for i := 0; i < 1e4; i++ {
+	for i := 0; i < 1e5; i++ {
 		j := rand.Int()
 		c.Insert(strconv.Itoa(j), j)
 		v, ok := c.Get(strconv.Itoa(j))
@@ -61,7 +61,7 @@ func TestConcurrent(t *testing.T) {
 
 	var wg sync.WaitGroup
 	ch := make(chan int)
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 1000; i++ {
 		wg.Add(1)
 		go func(wid int) {
 			defer wg.Done()
@@ -86,10 +86,10 @@ func TestConcurrent(t *testing.T) {
 	os.Remove("cpu.out")
 	cpu, _ := os.Create("cpu.out")
 	pprof.StartCPUProfile(cpu)
-	for i := 0; i < 12e4; i++ {
+	for i := 0; i < 5e6; i++ {
 		ch <- rand.Int()
 
-		if i%2e4 == 0 {
+		if i%2e5 == 0 {
 			fmt.Println(i)
 		}
 	}
