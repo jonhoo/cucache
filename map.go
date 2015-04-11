@@ -57,6 +57,7 @@ func (b *cbin) subin(v cval) {
 	for j, jv := range b.vals {
 		if !jv.present() {
 			b.vals[j] = v
+			return
 		}
 	}
 }
