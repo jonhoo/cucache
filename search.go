@@ -37,8 +37,12 @@ func (m *cmap) find(path []mv, bin int, depth int) []mv {
 			to := from
 			bno := m.bins[bin].vals[i].bno + 1
 			key := m.bins[bin].vals[i].key
-			for ; bno < int(m.hashes); bno++ {
+			for i := 0; i < int(m.hashes); i++ {
+				bno = (bno + 1) % int(m.hashes)
 				to = m.bin(bno, key)
+				// XXX: could potentially try all bins here and
+				// check each for available()? extra-broad
+				// search...
 				if to != from {
 					break
 				}
