@@ -51,6 +51,19 @@ func (m *cmap) find(path []mv, bin int, depth int) []mv {
 				continue
 			}
 
+			skip := false
+			for _, p := range path {
+				if p.from == to {
+					skip = true
+					break
+				}
+			}
+
+			if skip {
+				// XXX: could instead try next bin here
+				continue
+			}
+
 			path_[len(path)] = mv{key, from, to, bno}
 			if m.bins[to].available() {
 				return path_
