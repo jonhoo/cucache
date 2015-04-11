@@ -44,7 +44,7 @@ type cval struct {
 	val     interface{}
 }
 
-func (v cval) present() bool {
+func (v *cval) present() bool {
 	return !(v.expires == 0 || v.val == nil)
 }
 

@@ -86,10 +86,10 @@ func TestConcurrent(t *testing.T) {
 	os.Remove("cpu.out")
 	cpu, _ := os.Create("cpu.out")
 	pprof.StartCPUProfile(cpu)
-	for i := 0; i < 8*1e4; i++ {
+	for i := 0; i < 12e4; i++ {
 		ch <- rand.Int()
 
-		if i%1e4 == 0 {
+		if i%2e4 == 0 {
 			fmt.Println(i)
 		}
 	}

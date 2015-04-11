@@ -23,17 +23,22 @@ func (m *cmap) search(bins ...int) []mv {
 
 func (m *cmap) find(path []mv, bin int, depth int) []mv {
 	if depth >= 0 {
-		for _, v := range m.bins[bin].vals {
+		for i := 0; i < ASSOCIATIVITY; i++ {
+			if !m.bins[bin].vals[i].present() {
+				return path
+			}
+
 			path_ := make([]mv, len(path)+1)
 			for i := range path {
 				path_[i] = path[i]
 			}
 
-			from := m.bin(v.bno, v.key)
+			from := bin
 			to := from
-			bno := v.bno + 1
+			bno := m.bins[bin].vals[i].bno + 1
+			key := m.bins[bin].vals[i].key
 			for ; bno < int(m.hashes); bno++ {
-				to = m.bin(bno, v.key)
+				to = m.bin(bno, key)
 				if to != from {
 					break
 				}
@@ -42,7 +47,7 @@ func (m *cmap) find(path []mv, bin int, depth int) []mv {
 				continue
 			}
 
-			path_[len(path)] = mv{v.key, from, to, bno}
+			path_[len(path)] = mv{key, from, to, bno}
 			if m.bins[to].available() {
 				return path_
 			} else {
