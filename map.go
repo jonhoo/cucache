@@ -45,7 +45,7 @@ type cval struct {
 }
 
 func (v *cval) present() bool {
-	return !(v.expires == 0 || v.val == nil)
+	return v.val != nil // TODO: && not expired
 }
 
 type cbin struct {
@@ -62,17 +62,17 @@ func (b *cbin) subin(v cval) {
 }
 
 func (b *cbin) kill(i int) {
-	b.vals[i].expires = 0
+	b.vals[i].val = nil
+	//b.vals[i].expires = 0
 }
 
 func (b *cbin) available() bool {
-	present := 0
 	for i := 0; i < ASSOCIATIVITY; i++ {
-		if b.vals[i].present() {
-			present++
+		if !b.vals[i].present() {
+			return true
 		}
 	}
-	return present < ASSOCIATIVITY
+	return false
 }
 
 type cmap struct {
