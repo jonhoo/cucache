@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"sync"
 	"testing"
+	"time"
 )
 
 func TestSimple(t *testing.T) {
@@ -47,6 +48,12 @@ func TestMany(t *testing.T) {
 	}
 }
 
+type igtime struct {
+	i      int
+	insert time.Duration
+	get    time.Duration
+}
+
 func TestConcurrent(t *testing.T) {
 	runtime.GOMAXPROCS(4)
 	c := cuckoo.New()
@@ -59,6 +66,16 @@ func TestConcurrent(t *testing.T) {
 		}
 	}()
 
+	os.Remove("results.log")
+	res, _ := os.Create("results.log")
+	tms := make(chan igtime)
+	go func() {
+		for tm := range tms {
+			fmt.Fprintf(res, "%d %f %f\n", tm.i, tm.insert.Seconds(), tm.get.Seconds())
+		}
+		res.Close()
+	}()
+
 	var wg sync.WaitGroup
 	ch := make(chan int)
 	for i := 0; i < 1000; i++ {
@@ -66,19 +83,30 @@ func TestConcurrent(t *testing.T) {
 		go func(wid int) {
 			defer wg.Done()
 			for i := range ch {
+				tm := igtime{}
+
+				start := time.Now()
 				e := c.Insert(strconv.Itoa(i), i)
+				tm.insert = time.Now().Sub(start)
+
 				if e != nil {
 					ech <- true
 					continue
 				}
 
+				start = time.Now()
 				v, ok := c.Get(strconv.Itoa(i))
+				tm.get = time.Now().Sub(start)
+
 				if !ok {
 					t.Error("Concurrent get failed")
 				}
 				if vi, ok := v.(int); !ok || i != vi {
 					t.Error("Concurrent get did not return correct value")
 				}
+
+				tm.i = i
+				tms <- tm
 			}
 		}(i)
 	}
@@ -95,6 +123,7 @@ func TestConcurrent(t *testing.T) {
 	}
 	close(ch)
 	wg.Wait()
+	close(tms)
 
 	fmt.Println("observed", errs, "insert errors")
 
