@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"hash/fnv"
 	"sort"
+	"sync/atomic"
+	"unsafe"
 )
 
 const ASSOCIATIVITY int = 8
@@ -48,28 +50,41 @@ func (v *cval) present() bool {
 	return v.val != nil // TODO: && not expired
 }
 
+func (b *cbin) v(i int) *cval {
+	v := atomic.LoadPointer(&b.vals[i])
+	return (*cval)(v)
+}
+
+func (b *cbin) vpresent(i int) bool {
+	v := b.v(i)
+	return v != nil && v.present()
+}
+
 type cbin struct {
-	vals [ASSOCIATIVITY]cval
+	vals [ASSOCIATIVITY]unsafe.Pointer
 	mx   SpinLock
 }
 
-func (b *cbin) subin(v cval) {
-	for j, jv := range b.vals {
-		if !jv.present() {
-			b.vals[j] = v
+func (b *cbin) setv(i int, v *cval) {
+	atomic.StorePointer(&b.vals[i], unsafe.Pointer(v))
+}
+
+func (b *cbin) subin(v *cval) {
+	for i := 0; i < ASSOCIATIVITY; i++ {
+		if !b.vpresent(i) {
+			b.setv(i, v)
 			return
 		}
 	}
 }
 
 func (b *cbin) kill(i int) {
-	b.vals[i].val = nil
-	//b.vals[i].expires = 0
+	b.setv(i, nil)
 }
 
 func (b *cbin) available() bool {
 	for i := 0; i < ASSOCIATIVITY; i++ {
-		if !b.vals[i].present() {
+		if !b.vpresent(i) {
 			return true
 		}
 	}
@@ -87,9 +102,10 @@ func (m *cmap) iterate() <-chan cval {
 		for i, bin := range m.bins {
 			vals := make([]cval, 0, ASSOCIATIVITY)
 			m.bins[i].mx.Lock()
-			for _, v := range bin.vals {
-				if v.present() {
-					vals = append(vals, v)
+			for vi := 0; vi < ASSOCIATIVITY; vi++ {
+				v := bin.v(vi)
+				if v != nil && v.present() {
+					vals = append(vals, *v)
 				}
 			}
 			m.bins[i].mx.Unlock()
@@ -102,11 +118,11 @@ func (m *cmap) iterate() <-chan cval {
 	return ch
 }
 
-func (m *cmap) add(bini int, bin int, key keyt, val interface{}) bool {
+func (m *cmap) add(bin int, val *cval) bool {
 	m.bins[bin].mx.Lock()
 	defer m.bins[bin].mx.Unlock()
 	if m.bins[bin].available() {
-		m.bins[bin].subin(cval{bini, 1, key, val})
+		m.bins[bin].subin(val)
 		return true
 	}
 	return false
@@ -156,8 +172,9 @@ func (m *cmap) validate_execute(path []mv) bool {
 		}
 
 		ki := -1
-		for j, jk := range m.bins[k.from].vals {
-			if jk.present() && bytes.Equal(jk.key, k.key) {
+		for j := 0; j < ASSOCIATIVITY; j++ {
+			jk := m.bins[k.from].v(j)
+			if jk != nil && jk.present() && bytes.Equal(jk.key, k.key) {
 				ki = j
 				break
 			}
@@ -168,7 +185,7 @@ func (m *cmap) validate_execute(path []mv) bool {
 			return false
 		}
 
-		v := m.bins[k.from].vals[ki]
+		v := m.bins[k.from].v(ki)
 		v.bno = k.tobn
 
 		m.bins[k.to].subin(v)
@@ -182,7 +199,8 @@ func (m *cmap) validate_execute(path []mv) bool {
 
 func (m *cmap) has(bin int, key keyt) int {
 	for i := 0; i < ASSOCIATIVITY; i++ {
-		if m.bins[bin].vals[i].present() && bytes.Equal(m.bins[bin].vals[i].key, key) {
+		v := m.bins[bin].v(i)
+		if v != nil && v.present() && bytes.Equal(v.key, key) {
 			return i
 		}
 	}
@@ -199,7 +217,7 @@ func (m *cmap) del(key keyt) (v interface{}) {
 	for _, bin := range bins {
 		ki := m.has(bin, key)
 		if ki != -1 {
-			v = m.bins[bin].vals[ki]
+			v = m.bins[bin].v(ki).val
 			m.bins[bin].kill(ki)
 			return
 		}
@@ -210,11 +228,14 @@ func (m *cmap) del(key keyt) (v interface{}) {
 func (m *cmap) insert(key keyt, val interface{}) int {
 	bins := m.kbins(key)
 
+	ival := cval{-1, 1, key, val}
+
 	m.lock_in_order(bins...)
-	for _, bin := range bins {
+	for bi, bin := range bins {
 		ki := m.has(bin, key)
 		if ki != -1 {
-			m.bins[bin].vals[ki].val = val
+			ival.bno = bi
+			m.bins[bin].setv(ki, &ival)
 			m.unlock(bins...)
 			return 0
 		}
@@ -223,7 +244,8 @@ func (m *cmap) insert(key keyt, val interface{}) int {
 
 	for i, b := range bins {
 		if m.bins[b].available() {
-			if m.add(i, b, key, val) {
+			ival.bno = i
+			if m.add(b, &ival) {
 				return 0
 			}
 		}
@@ -252,7 +274,8 @@ func (m *cmap) insert(key keyt, val interface{}) int {
 		}
 
 		if m.validate_execute(path) {
-			if m.add(tobin, freeing, key, val) {
+			ival.bno = tobin
+			if m.add(freeing, &ival) {
 				return len(path)
 			}
 		}
@@ -264,8 +287,9 @@ func (m *cmap) get(key keyt) (interface{}, bool) {
 
 	for _, bin := range bins {
 		b := m.bins[bin]
-		for _, s := range b.vals {
-			if s.present() && bytes.Equal(s.key, key) {
+		for i := 0; i < ASSOCIATIVITY; i++ {
+			s := b.v(i)
+			if s != nil && s.present() && bytes.Equal(s.key, key) {
 				return s.val, true
 			}
 		}
