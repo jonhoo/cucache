@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"sync/atomic"
+	"time"
 )
 
 const MAX_HASHES = 10
@@ -19,9 +20,15 @@ func New() Cuckoo {
 	return Cuckoo{m}
 }
 
-func (c Cuckoo) Insert(key string, value interface{}) error {
+func (c Cuckoo) Insert(key string, value Memval) error {
 	h := c.hashes
-	pathl := c.insert(keyt(key), value)
+
+	f := func(old Memval, exists bool) (set Memval, status int) {
+		return value, 0
+	}
+
+	exp := time.Time{}
+	pathl := c.insert(keyt(key), f, exp)
 
 	for pathl == -1 && h < MAX_HASHES {
 		sw := atomic.CompareAndSwapUint32(&c.hashes, h, h+1)
@@ -30,7 +37,7 @@ func (c Cuckoo) Insert(key string, value interface{}) error {
 		}
 
 		h = c.hashes
-		pathl = c.insert(keyt(key), value)
+		pathl = c.insert(keyt(key), f, exp)
 	}
 
 	if pathl == -1 {
@@ -39,7 +46,7 @@ func (c Cuckoo) Insert(key string, value interface{}) error {
 	return nil
 }
 
-func (c Cuckoo) Get(key string) (interface{}, bool) {
+func (c Cuckoo) Get(key string) (Memval, bool) {
 	return c.get(keyt(key))
 }
 

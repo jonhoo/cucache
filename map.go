@@ -7,6 +7,7 @@ import (
 	"hash/fnv"
 	"sort"
 	"sync/atomic"
+	"time"
 	"unsafe"
 )
 
@@ -39,15 +40,21 @@ func (m *cmap) kbins(key keyt) []int {
 	return bins
 }
 
-type cval struct {
-	bno     int
-	expires int
-	key     keyt
-	val     interface{}
+type Memval struct {
+	Bytes []byte
+	Flags uint16
+	Casid uint64
 }
 
-func (v *cval) present() bool {
-	return v.val != nil // TODO: && not expired
+type cval struct {
+	bno     int
+	expires time.Time
+	key     keyt
+	val     Memval
+}
+
+func (v *cval) present(now time.Time) bool {
+	return v.expires.IsZero() || v.expires.After(now)
 }
 
 func (b *cbin) v(i int) *cval {
@@ -55,9 +62,9 @@ func (b *cbin) v(i int) *cval {
 	return (*cval)(v)
 }
 
-func (b *cbin) vpresent(i int) bool {
+func (b *cbin) vpresent(i int, now time.Time) bool {
 	v := b.v(i)
-	return v != nil && v.present()
+	return v != nil && v.present(now)
 }
 
 type cbin struct {
@@ -69,9 +76,9 @@ func (b *cbin) setv(i int, v *cval) {
 	atomic.StorePointer(&b.vals[i], unsafe.Pointer(v))
 }
 
-func (b *cbin) subin(v *cval) {
+func (b *cbin) subin(v *cval, now time.Time) {
 	for i := 0; i < ASSOCIATIVITY; i++ {
-		if !b.vpresent(i) {
+		if !b.vpresent(i, now) {
 			b.setv(i, v)
 			return
 		}
@@ -82,9 +89,9 @@ func (b *cbin) kill(i int) {
 	b.setv(i, nil)
 }
 
-func (b *cbin) available() bool {
+func (b *cbin) available(now time.Time) bool {
 	for i := 0; i < ASSOCIATIVITY; i++ {
-		if !b.vpresent(i) {
+		if !b.vpresent(i, now) {
 			return true
 		}
 	}
@@ -97,6 +104,7 @@ type cmap struct {
 }
 
 func (m *cmap) iterate() <-chan cval {
+	now := time.Now()
 	ch := make(chan cval)
 	go func() {
 		for i, bin := range m.bins {
@@ -104,7 +112,7 @@ func (m *cmap) iterate() <-chan cval {
 			m.bins[i].mx.Lock()
 			for vi := 0; vi < ASSOCIATIVITY; vi++ {
 				v := bin.v(vi)
-				if v != nil && v.present() {
+				if v != nil && v.present(now) {
 					vals = append(vals, *v)
 				}
 			}
@@ -118,14 +126,19 @@ func (m *cmap) iterate() <-chan cval {
 	return ch
 }
 
-func (m *cmap) add(bin int, val *cval) bool {
+func (m *cmap) add(bin int, val *cval, upd func(Memval, bool) (Memval, int), now time.Time) (ret int) {
 	m.bins[bin].mx.Lock()
 	defer m.bins[bin].mx.Unlock()
-	if m.bins[bin].available() {
-		m.bins[bin].subin(val)
-		return true
+
+	ret = -1
+	if m.bins[bin].available(now) {
+		val.val, ret = upd(val.val, false)
+		if ret == 0 {
+			m.bins[bin].subin(val, now)
+		}
+		return
 	}
-	return false
+	return
 }
 
 func (m *cmap) lock_in_order(bins ...int) {
@@ -160,12 +173,12 @@ func (m *cmap) unlock(bins ...int) {
 	}
 }
 
-func (m *cmap) validate_execute(path []mv) bool {
+func (m *cmap) validate_execute(path []mv, now time.Time) bool {
 	for i := len(path) - 1; i >= 0; i-- {
 		k := path[i]
 
 		m.lock_in_order(k.from, k.to)
-		if !m.bins[k.to].available() {
+		if !m.bins[k.to].available(now) {
 			m.unlock(k.from, k.to)
 			fmt.Println("path to occupancy no longer valid, target bucket now full")
 			return false
@@ -174,7 +187,7 @@ func (m *cmap) validate_execute(path []mv) bool {
 		ki := -1
 		for j := 0; j < ASSOCIATIVITY; j++ {
 			jk := m.bins[k.from].v(j)
-			if jk != nil && jk.present() && bytes.Equal(jk.key, k.key) {
+			if jk != nil && jk.present(now) && bytes.Equal(jk.key, k.key) {
 				ki = j
 				break
 			}
@@ -188,7 +201,7 @@ func (m *cmap) validate_execute(path []mv) bool {
 		v := m.bins[k.from].v(ki)
 		v.bno = k.tobn
 
-		m.bins[k.to].subin(v)
+		m.bins[k.to].subin(v, now)
 		m.bins[k.from].kill(ki)
 
 		m.unlock(k.from, k.to)
@@ -197,10 +210,10 @@ func (m *cmap) validate_execute(path []mv) bool {
 	return true
 }
 
-func (m *cmap) has(bin int, key keyt) int {
+func (m *cmap) has(bin int, key keyt, now time.Time) int {
 	for i := 0; i < ASSOCIATIVITY; i++ {
 		v := m.bins[bin].v(i)
-		if v != nil && v.present() && bytes.Equal(v.key, key) {
+		if v != nil && v.present(now) && bytes.Equal(v.key, key) {
 			return i
 		}
 	}
@@ -209,13 +222,14 @@ func (m *cmap) has(bin int, key keyt) int {
 
 // del removes the entry with the given key, and returns its value (if any)
 func (m *cmap) del(key keyt) (v interface{}) {
+	now := time.Now()
 	bins := m.kbins(key)
 
 	m.lock_in_order(bins...)
 	defer m.unlock(bins...)
 
 	for _, bin := range bins {
-		ki := m.has(bin, key)
+		ki := m.has(bin, key, now)
 		if ki != -1 {
 			v = m.bins[bin].v(ki).val
 			m.bins[bin].kill(ki)
@@ -225,17 +239,21 @@ func (m *cmap) del(key keyt) (v interface{}) {
 	return nil
 }
 
-func (m *cmap) insert(key keyt, val interface{}) int {
+func (m *cmap) insert(key keyt, upd func(Memval, bool) (Memval, int), expires time.Time) (ret int) {
+	now := time.Now()
 	bins := m.kbins(key)
 
-	ival := cval{-1, 1, key, val}
+	ival := cval{expires: expires, key: key}
 
 	m.lock_in_order(bins...)
 	for bi, bin := range bins {
-		ki := m.has(bin, key)
+		ki := m.has(bin, key, now)
 		if ki != -1 {
 			ival.bno = bi
-			m.bins[bin].setv(ki, &ival)
+			ival.val, ret = upd(m.bins[bin].v(ki).val, true)
+			if ret == 0 {
+				m.bins[bin].setv(ki, &ival)
+			}
 			m.unlock(bins...)
 			return 0
 		}
@@ -243,16 +261,18 @@ func (m *cmap) insert(key keyt, val interface{}) int {
 	m.unlock(bins...)
 
 	for i, b := range bins {
-		if m.bins[b].available() {
+		if m.bins[b].available(now) {
 			ival.bno = i
-			if m.add(b, &ival) {
-				return 0
+			ret = m.add(b, &ival, upd, now)
+			if ret >= 0 {
+				return
 			}
+			// ret < 0 is no space, pursue other avenues
 		}
 	}
 
 	for {
-		path := m.search(bins...)
+		path := m.search(now, bins...)
 		if path == nil {
 			return -1
 		}
@@ -273,26 +293,28 @@ func (m *cmap) insert(key keyt, val interface{}) int {
 			panic(fmt.Sprintf("path %v leads to occupancy in bin %v, but is unhelpful for key %s with bins: %v", path, freeing, key, bins))
 		}
 
-		if m.validate_execute(path) {
+		if m.validate_execute(path, now) {
 			ival.bno = tobin
-			if m.add(freeing, &ival) {
-				return len(path)
+			ret = m.add(freeing, &ival, upd, now)
+			if ret >= 0 {
+				return
 			}
 		}
 	}
 }
 
-func (m *cmap) get(key keyt) (interface{}, bool) {
+func (m *cmap) get(key keyt) (Memval, bool) {
+	now := time.Now()
 	bins := m.kbins(key)
 
 	for _, bin := range bins {
 		b := m.bins[bin]
 		for i := 0; i < ASSOCIATIVITY; i++ {
 			s := b.v(i)
-			if s != nil && s.present() && bytes.Equal(s.key, key) {
+			if s != nil && s.present(now) && bytes.Equal(s.key, key) {
 				return s.val, true
 			}
 		}
 	}
-	return nil, false
+	return Memval{}, false
 }

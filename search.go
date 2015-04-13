@@ -1,5 +1,7 @@
 package cuckoo
 
+import "time"
+
 const MAX_SEARCH_DEPTH int = 10
 
 type mv struct {
@@ -9,10 +11,10 @@ type mv struct {
 	tobn int
 }
 
-func (m *cmap) search(bins ...int) []mv {
+func (m *cmap) search(now time.Time, bins ...int) []mv {
 	for depth := 1; depth < MAX_SEARCH_DEPTH; depth++ {
 		for _, b := range bins {
-			path := m.find(nil, b, depth)
+			path := m.find(nil, b, depth, now)
 			if path != nil {
 				return path
 			}
@@ -21,11 +23,11 @@ func (m *cmap) search(bins ...int) []mv {
 	return nil
 }
 
-func (m *cmap) find(path []mv, bin int, depth int) []mv {
+func (m *cmap) find(path []mv, bin int, depth int, now time.Time) []mv {
 	if depth >= 0 {
 		for i := 0; i < ASSOCIATIVITY; i++ {
 			v := m.bins[bin].v(i)
-			if v == nil || !v.present() {
+			if v == nil || !v.present(now) {
 				return path
 			}
 
@@ -66,10 +68,10 @@ func (m *cmap) find(path []mv, bin int, depth int) []mv {
 			}
 
 			path_[len(path)] = mv{key, from, to, bno}
-			if m.bins[to].available() {
+			if m.bins[to].available(now) {
 				return path_
 			} else {
-				return m.find(path_, to, depth-1)
+				return m.find(path_, to, depth-1, now)
 			}
 		}
 	}

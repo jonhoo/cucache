@@ -1,7 +1,9 @@
 package cuckoo_test
 
 import (
+	"bytes"
 	"cuckood"
+	"encoding/binary"
 	"fmt"
 	"math/rand"
 	"os"
@@ -15,20 +17,15 @@ import (
 
 func TestSimple(t *testing.T) {
 	c := cuckoo.New()
-	c.Insert("hello", "world")
+	c.Insert("hello", cuckoo.Memval{Bytes: []byte("world")})
 	v, ok := c.Get("hello")
 
 	if !ok {
 		t.Error("Get did not return successfully")
 	}
 
-	switch v := v.(type) {
-	case string:
-		if v != "world" {
-			t.Error("Get returned wrong string")
-		}
-	default:
-		t.Error("Get did not return a string")
+	if string(v.Bytes) != "world" {
+		t.Error("Get returned wrong string")
 	}
 }
 
@@ -36,13 +33,15 @@ func TestMany(t *testing.T) {
 	c := cuckoo.New()
 
 	for i := 0; i < 1e3; i++ {
-		j := rand.Int()
-		c.Insert(strconv.Itoa(j), j)
-		v, ok := c.Get(strconv.Itoa(j))
+		j := uint64(rand.Int63())
+		m := cuckoo.Memval{Bytes: make([]byte, 8)}
+		binary.BigEndian.PutUint64(m.Bytes, j)
+		c.Insert(strconv.FormatUint(j, 10), m)
+		v, ok := c.Get(strconv.FormatUint(j, 10))
 		if !ok {
 			t.Error("Concurrent get failed")
 		}
-		if vj, ok := v.(int); !ok || j != vj {
+		if !bytes.Equal(m.Bytes, v.Bytes) {
 			t.Error("Concurrent get did not return correct value")
 		}
 	}
@@ -86,7 +85,12 @@ func TestConcurrent(t *testing.T) {
 				tm := igtime{}
 
 				start := time.Now()
-				e := c.Insert(strconv.Itoa(i), i)
+
+				j := i
+				m := cuckoo.Memval{Bytes: make([]byte, 8)}
+				binary.BigEndian.PutUint64(m.Bytes, uint64(j))
+
+				e := c.Insert(strconv.Itoa(i), m)
 				tm.insert = time.Now().Sub(start)
 
 				if e != nil {
@@ -101,7 +105,7 @@ func TestConcurrent(t *testing.T) {
 				if !ok {
 					t.Error("Concurrent get failed")
 				}
-				if vi, ok := v.(int); !ok || i != vi {
+				if !bytes.Equal(m.Bytes, v.Bytes) {
 					t.Error("Concurrent get did not return correct value")
 				}
 
@@ -144,12 +148,8 @@ func TestSameKey(t *testing.T) {
 		if !ok {
 			t.Error("key lost")
 		}
-		if vi, ok := v.(int); ok {
-			if vi != 1 && vi != 2 {
-				t.Error("value is not one of the inserted values")
-			}
-		} else {
-			t.Error("value has wrong type")
+		if len(v.Bytes) != 1 || (v.Bytes[0] != 0x1 && v.Bytes[0] != 0x2) {
+			t.Error("value is not one of the inserted values")
 		}
 	}
 
@@ -157,16 +157,18 @@ func TestSameKey(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		m := cuckoo.Memval{Bytes: []byte{0x1}}
 		for i := 0; i < 1e5; i++ {
-			c.Insert("a", 2)
+			c.Insert("a", m)
 			get()
 		}
 	}()
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		m := cuckoo.Memval{Bytes: []byte{0x2}}
 		for i := 0; i < 1e5; i++ {
-			c.Insert("a", 1)
+			c.Insert("a", m)
 			get()
 		}
 	}()
