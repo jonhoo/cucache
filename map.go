@@ -8,13 +8,18 @@ import (
 	"time"
 )
 
+// ASSOCIATIVITY is the set-associativity of each Cuckoo bin
 const ASSOCIATIVITY int = 8
 
+// cmap holds a number of Cuckoo bins (each with room for ASSOCIATIVITY values),
+// and keeps track of the number of hashes being used.
 type cmap struct {
 	bins   []cbin
 	hashes uint32
 }
 
+// iterate returns a channel that contains every currently set value.
+// in the face of concurrent updates, some elements may be repeated or lost.
 func (m *cmap) iterate() <-chan cval {
 	now := time.Now()
 	ch := make(chan cval)
@@ -38,7 +43,7 @@ func (m *cmap) iterate() <-chan cval {
 	return ch
 }
 
-// del removes the entry with the given key, and returns its value (if any)
+// del removes the entry with the given key (if any), and returns its value
 func (m *cmap) del(key keyt) (ret MemopRes) {
 	now := time.Now()
 	bins := m.kbins(key)
@@ -59,12 +64,15 @@ func (m *cmap) del(key keyt) (ret MemopRes) {
 	return
 }
 
+// insert sets or updates the entry with the given key.
+// the update function is used to determine the new value, and is passed the
+// old value under a lock.
 func (m *cmap) insert(key keyt, upd Memop) (ret MemopRes) {
 	now := time.Now()
 	bins := m.kbins(key)
-
 	ival := cval{key: key}
 
+	// Check if this element is already present
 	m.lock_in_order(bins...)
 	for bi, bin := range bins {
 		b := &m.bins[bin]
@@ -81,6 +89,7 @@ func (m *cmap) insert(key keyt, upd Memop) (ret MemopRes) {
 	}
 	m.unlock(bins...)
 
+	// Item not currently present, is there room without a search?
 	for i, b := range bins {
 		if m.bins[b].available(now) {
 			ival.bno = i
@@ -91,9 +100,12 @@ func (m *cmap) insert(key keyt, upd Memop) (ret MemopRes) {
 		}
 	}
 
+	// Keep trying to find a cuckoo path of replacements
 	for {
 		path := m.search(now, bins...)
 		if path == nil {
+			// XXX: ideally we'd do a resize here, but without
+			// locking everything...
 			return MemopRes{
 				T: SERVER_ERROR,
 				V: errors.New("no storage space found for element"),
@@ -105,7 +117,7 @@ func (m *cmap) insert(key keyt, upd Memop) (ret MemopRes) {
 		// recompute bins because #hashes might have changed
 		bins = m.kbins(key)
 
-		// sanity check that this path will make room
+		// sanity check that this path will make room in the right bin
 		tobin := -1
 		for i, bin := range bins {
 			if freeing == bin {
@@ -116,8 +128,13 @@ func (m *cmap) insert(key keyt, upd Memop) (ret MemopRes) {
 			panic(fmt.Sprintf("path %v leads to occupancy in bin %v, but is unhelpful for key %s with bins: %v", path, freeing, key, bins))
 		}
 
+		// only after the search do we acquire locks
 		if m.validate_execute(path, now) {
 			ival.bno = tobin
+
+			// after replacements, someone else might have beaten
+			// us to the free slot, so we need to do add under a
+			// lock too
 			ret = m.bins[freeing].add(&ival, upd, now)
 			if ret.T != SERVER_ERROR {
 				return
@@ -126,6 +143,7 @@ func (m *cmap) insert(key keyt, upd Memop) (ret MemopRes) {
 	}
 }
 
+// get returns the current value (if any) for the given key
 func (m *cmap) get(key keyt) (ret MemopRes) {
 	now := time.Now()
 	bins := m.kbins(key)
@@ -145,6 +163,8 @@ func (m *cmap) get(key keyt) (ret MemopRes) {
 	return
 }
 
+// lock_in_order will acquire the given locks in a fixed order that ensures
+// competing lockers will not deadlock.
 func (m *cmap) lock_in_order(bins ...int) {
 	locks := make([]int, len(bins))
 	for i := range bins {
@@ -161,6 +181,8 @@ func (m *cmap) lock_in_order(bins ...int) {
 	}
 }
 
+// unlock will release the given locks while ensuring no lock is released
+// multiple times.
 func (m *cmap) unlock(bins ...int) {
 	locks := make([]int, len(bins))
 	for i := range bins {
