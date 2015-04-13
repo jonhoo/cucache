@@ -1,6 +1,10 @@
 package cuckoo
 
-import "time"
+import (
+	"bytes"
+	"fmt"
+	"time"
+)
 
 const MAX_SEARCH_DEPTH int = 10
 
@@ -76,4 +80,41 @@ func (m *cmap) find(path []mv, bin int, depth int, now time.Time) []mv {
 		}
 	}
 	return nil
+}
+
+func (m *cmap) validate_execute(path []mv, now time.Time) bool {
+	for i := len(path) - 1; i >= 0; i-- {
+		k := path[i]
+
+		m.lock_in_order(k.from, k.to)
+		if !m.bins[k.to].available(now) {
+			m.unlock(k.from, k.to)
+			fmt.Println("path to occupancy no longer valid, target bucket now full")
+			return false
+		}
+
+		ki := -1
+		for j := 0; j < ASSOCIATIVITY; j++ {
+			jk := m.bins[k.from].v(j)
+			if jk != nil && jk.present(now) && bytes.Equal(jk.key, k.key) {
+				ki = j
+				break
+			}
+		}
+		if ki == -1 {
+			m.unlock(k.from, k.to)
+			fmt.Println("path to occupancy no longer valid, key already swapped")
+			return false
+		}
+
+		v := m.bins[k.from].v(ki)
+		v.bno = k.tobn
+
+		m.bins[k.to].subin(v, now)
+		m.bins[k.from].kill(ki)
+
+		m.unlock(k.from, k.to)
+	}
+
+	return true
 }

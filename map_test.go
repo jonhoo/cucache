@@ -15,9 +15,11 @@ import (
 	"time"
 )
 
+var never = time.Time{}
+
 func TestSimple(t *testing.T) {
 	c := cuckoo.New()
-	c.Insert("hello", cuckoo.Memval{Bytes: []byte("world")})
+	c.Set("hello", []byte("world"), 0, never)
 	v, ok := c.Get("hello")
 
 	if !ok {
@@ -34,14 +36,14 @@ func TestMany(t *testing.T) {
 
 	for i := 0; i < 1e3; i++ {
 		j := uint64(rand.Int63())
-		m := cuckoo.Memval{Bytes: make([]byte, 8)}
-		binary.BigEndian.PutUint64(m.Bytes, j)
-		c.Insert(strconv.FormatUint(j, 10), m)
+		b := make([]byte, 8)
+		binary.BigEndian.PutUint64(b, j)
+		c.Set(strconv.FormatUint(j, 10), b, 0, never)
 		v, ok := c.Get(strconv.FormatUint(j, 10))
 		if !ok {
 			t.Error("Concurrent get failed")
 		}
-		if !bytes.Equal(m.Bytes, v.Bytes) {
+		if !bytes.Equal(b, v.Bytes) {
 			t.Error("Concurrent get did not return correct value")
 		}
 	}
@@ -87,13 +89,13 @@ func TestConcurrent(t *testing.T) {
 				start := time.Now()
 
 				j := i
-				m := cuckoo.Memval{Bytes: make([]byte, 8)}
-				binary.BigEndian.PutUint64(m.Bytes, uint64(j))
+				b := make([]byte, 8)
+				binary.BigEndian.PutUint64(b, uint64(j))
 
-				e := c.Insert(strconv.Itoa(i), m)
+				e := c.Set(strconv.Itoa(i), b, 0, never)
 				tm.insert = time.Now().Sub(start)
 
-				if e != nil {
+				if e.T != cuckoo.STORED {
 					ech <- true
 					continue
 				}
@@ -105,7 +107,7 @@ func TestConcurrent(t *testing.T) {
 				if !ok {
 					t.Error("Concurrent get failed")
 				}
-				if !bytes.Equal(m.Bytes, v.Bytes) {
+				if !bytes.Equal(b, v.Bytes) {
 					t.Error("Concurrent get did not return correct value")
 				}
 
@@ -157,18 +159,18 @@ func TestSameKey(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		m := cuckoo.Memval{Bytes: []byte{0x1}}
+		b := []byte{0x1}
 		for i := 0; i < 1e5; i++ {
-			c.Insert("a", m)
+			c.Set("a", b, 0, never)
 			get()
 		}
 	}()
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		m := cuckoo.Memval{Bytes: []byte{0x2}}
+		b := []byte{0x2}
 		for i := 0; i < 1e5; i++ {
-			c.Insert("a", m)
+			c.Set("a", b, 0, never)
 			get()
 		}
 	}()

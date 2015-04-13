@@ -1,7 +1,6 @@
 package cuckoo
 
 import (
-	"errors"
 	"fmt"
 	"sync/atomic"
 	"time"
@@ -20,34 +19,61 @@ func New() Cuckoo {
 	return Cuckoo{m}
 }
 
-func (c Cuckoo) Insert(key string, value Memval) error {
+func (c Cuckoo) Set(key string, bytes []byte, flags uint16, expires time.Time) MemopRes {
+	return c.op(key, fset(bytes, flags, expires))
+}
+func (c Cuckoo) Add(key string, bytes []byte, flags uint16, expires time.Time) MemopRes {
+	return c.op(key, fadd(bytes, flags, expires))
+}
+func (c Cuckoo) Replace(key string, bytes []byte, flags uint16, expires time.Time) MemopRes {
+	return c.op(key, freplace(bytes, flags, expires))
+}
+func (c Cuckoo) Append(key string, bytes []byte) MemopRes {
+	return c.op(key, fappend(bytes))
+}
+func (c Cuckoo) Prepent(key string, bytes []byte) MemopRes {
+	return c.op(key, fprepend(bytes))
+}
+func (c Cuckoo) CAS(key string, bytes []byte, flags uint16, expires time.Time, casid uint64) MemopRes {
+	return c.op(key, fcas(bytes, flags, expires, casid))
+}
+func (c Cuckoo) Incr(key string, by uint64) MemopRes {
+	return c.op(key, fincr(by))
+}
+func (c Cuckoo) Decr(key string, by uint64) MemopRes {
+	return c.op(key, fdecr(by))
+}
+
+func (c Cuckoo) op(key string, upd Memop) MemopRes {
 	h := c.hashes
+	res := c.insert(keyt(key), upd)
 
-	f := func(old Memval, exists bool) (set Memval, status int) {
-		return value, 0
-	}
-
-	exp := time.Time{}
-	pathl := c.insert(keyt(key), f, exp)
-
-	for pathl == -1 && h < MAX_HASHES {
+	for res.T == SERVER_ERROR && h < MAX_HASHES {
 		sw := atomic.CompareAndSwapUint32(&c.hashes, h, h+1)
 		if sw {
 			fmt.Println("insert failed on key", key, ", so upped # hashes to", h+1)
 		}
 
 		h = c.hashes
-		pathl = c.insert(keyt(key), f, exp)
+		res = c.insert(keyt(key), upd)
+		if sw && res.T == SERVER_ERROR {
+			return res
+		}
 	}
 
-	if pathl == -1 {
-		return errors.New("insert failed, table must be full (or have bad cycles)")
-	}
-	return nil
+	return res
 }
 
-func (c Cuckoo) Get(key string) (Memval, bool) {
-	return c.get(keyt(key))
+func (c Cuckoo) Delete(key string) MemopResType {
+	return c.del(keyt(key)).T
+}
+
+func (c Cuckoo) Get(key string) (*Memval, bool) {
+	v := c.get(keyt(key))
+	if v.T == NOT_FOUND {
+		return nil, false
+	}
+	return v.V.(*Memval), true
 }
 
 func (c Cuckoo) Iterate() <-chan interface{} {
