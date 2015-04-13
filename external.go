@@ -26,7 +26,7 @@ func (c Cuckoo) Insert(key string, value interface{}) error {
 	for pathl == -1 && h < MAX_HASHES {
 		sw := atomic.CompareAndSwapUint32(&c.hashes, h, h+1)
 		if sw {
-			fmt.Println("insert failed, so upped # hashes to", h+1)
+			fmt.Println("insert failed on key", key, ", so upped # hashes to", h+1)
 		}
 
 		h = c.hashes
