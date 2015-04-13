@@ -134,3 +134,41 @@ func TestConcurrent(t *testing.T) {
 	pprof.StopCPUProfile()
 	cpu.Close()
 }
+
+func TestSameKey(t *testing.T) {
+	runtime.GOMAXPROCS(4)
+	c := cuckoo.New()
+
+	get := func() {
+		v, ok := c.Get("a")
+		if !ok {
+			t.Error("key lost")
+		}
+		if vi, ok := v.(int); ok {
+			if vi != 1 && vi != 2 {
+				t.Error("value is not one of the inserted values")
+			}
+		} else {
+			t.Error("value has wrong type")
+		}
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 1e5; i++ {
+			c.Insert("a", 2)
+			get()
+		}
+	}()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 1e5; i++ {
+			c.Insert("a", 1)
+			get()
+		}
+	}()
+	wg.Wait()
+}
