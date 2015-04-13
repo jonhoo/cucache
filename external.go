@@ -14,7 +14,7 @@ type Cuckoo struct{ *cmap }
 
 func New() Cuckoo {
 	m := new(cmap)
-	m.bins = make([]cbin, 1e6 /* TODO: all of main memory */)
+	m.bins = make([]cbin, 1e4 /* TODO: all of main memory */)
 	m.hashes = 2
 	return Cuckoo{m}
 }

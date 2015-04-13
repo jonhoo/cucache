@@ -35,7 +35,7 @@ func TestSimple(t *testing.T) {
 func TestMany(t *testing.T) {
 	c := cuckoo.New()
 
-	for i := 0; i < 1e5; i++ {
+	for i := 0; i < 1e3; i++ {
 		j := rand.Int()
 		c.Insert(strconv.Itoa(j), j)
 		v, ok := c.Get(strconv.Itoa(j))
@@ -114,10 +114,10 @@ func TestConcurrent(t *testing.T) {
 	os.Remove("cpu.out")
 	cpu, _ := os.Create("cpu.out")
 	pprof.StartCPUProfile(cpu)
-	for i := 0; i < 5e6; i++ {
-		ch <- rand.Int()
+	for i := 0; i < 70e3; i++ {
+		ch <- i
 
-		if i%2e5 == 0 {
+		if i%2e3 == 0 {
 			fmt.Println(i)
 		}
 	}
