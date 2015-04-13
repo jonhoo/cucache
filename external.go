@@ -96,8 +96,8 @@ func (c Cuckoo) op(key string, upd Memop) MemopRes {
 }
 
 // Delete removes the value for the given key
-func (c Cuckoo) Delete(key string) MemopResType {
-	return c.del(keyt(key)).T
+func (c Cuckoo) Delete(key string) MemopRes {
+	return c.del(keyt(key))
 }
 
 // Get returns the current value for the given key

@@ -3,6 +3,7 @@ package cuckoo
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"time"
 )
 
@@ -33,6 +34,27 @@ const (
 	CLIENT_ERROR              = iota
 	SERVER_ERROR              = -1
 )
+
+func (t MemopResType) String() string {
+	switch t {
+	case STORED:
+		return "STORED"
+	case NOT_STORED:
+		return "NOT_STORED"
+	case EXISTS:
+		return "EXISTS"
+	case NOT_FOUND:
+		return "NOT_FOUND"
+	case DELETED:
+		return "DELETED"
+	case CLIENT_ERROR:
+		return "CLIENT_ERROR"
+	case SERVER_ERROR:
+		return "SERVER_ERROR"
+	default:
+		panic(fmt.Sprintf("unknown type %d\n", t))
+	}
+}
 
 // Memop is a map operation to be performed for some key.
 // The operation will be passed the current value (Memop{} if no value exists),
