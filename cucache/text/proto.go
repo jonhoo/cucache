@@ -1,4 +1,4 @@
-package main
+package text
 
 import (
 	"bufio"
@@ -132,7 +132,7 @@ func data(lenarg string, in *bufio.Reader) ([]byte, error) {
 	return b, err
 }
 
-func Text2Req(cmd string, in *bufio.Reader) (req gomem.MCRequest, err error) {
+func ToMCRequest(cmd string, in *bufio.Reader) (req gomem.MCRequest, err error) {
 	args := strings.Fields(strings.TrimSpace(cmd))
 	cmd = args[0]
 	args = args[1:]

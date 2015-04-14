@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"cuckood"
+	"cuckood/cucache/text"
 	"encoding/binary"
 	"flag"
 	"fmt"
@@ -149,7 +150,7 @@ func deal(in_ io.Reader, out io.Writer) {
 				return
 			}
 
-			req, err = Text2Req(cmd, in)
+			req, err = text.ToMCRequest(cmd, in)
 			isbinary = false
 		}
 
