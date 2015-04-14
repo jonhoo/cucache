@@ -1,9 +1,10 @@
 package cuckoo
 
 import (
-	"encoding/binary"
 	"errors"
 	"fmt"
+	"math"
+	"strconv"
 	"time"
 )
 
@@ -11,7 +12,7 @@ import (
 // particular key.
 type Memval struct {
 	Bytes   []byte
-	Flags   uint16
+	Flags   uint32
 	Casid   uint64
 	Expires time.Time
 }
@@ -30,7 +31,6 @@ const (
 	NOT_STORED                = iota
 	EXISTS                    = iota
 	NOT_FOUND                 = iota
-	DELETED                   = iota
 	CLIENT_ERROR              = iota
 	SERVER_ERROR              = -1
 )
@@ -45,8 +45,6 @@ func (t MemopResType) String() string {
 		return "EXISTS"
 	case NOT_FOUND:
 		return "NOT_FOUND"
-	case DELETED:
-		return "DELETED"
 	case CLIENT_ERROR:
 		return "CLIENT_ERROR"
 	case SERVER_ERROR:
@@ -63,73 +61,81 @@ func (t MemopResType) String() string {
 type Memop func(Memval, bool) (Memval, MemopRes)
 
 // fset returns a Memop that overwrites the current value for a key.
-func fset(bytes []byte, flags uint16, expires time.Time) Memop {
+func fset(bytes []byte, flags uint32, expires time.Time) Memop {
 	return func(old Memval, _ bool) (m Memval, r MemopRes) {
 		m = Memval{bytes, flags, old.Casid + 1, expires}
 		r.T = STORED
+		r.V = old.Casid + 1
 		return
 	}
 }
 
 // fadd returns a Memop that adds the current value for a non-existing key.
-func fadd(bytes []byte, flags uint16, expires time.Time) Memop {
+func fadd(bytes []byte, flags uint32, expires time.Time) Memop {
 	return func(old Memval, exists bool) (m Memval, r MemopRes) {
-		r.T = NOT_STORED
+		r.T = EXISTS
 		if !exists {
 			m = Memval{bytes, flags, old.Casid + 1, expires}
 			r.T = STORED
+			r.V = old.Casid + 1
 		}
 		return
 	}
 }
 
 // freplace returns a Memop that replaces the current value for an existing key.
-func freplace(bytes []byte, flags uint16, expires time.Time) Memop {
+func freplace(bytes []byte, flags uint32, expires time.Time) Memop {
 	return func(old Memval, exists bool) (m Memval, r MemopRes) {
-		r.T = NOT_STORED
+		r.T = NOT_FOUND
 		if exists {
 			m = Memval{bytes, flags, old.Casid + 1, expires}
 			r.T = STORED
+			r.V = old.Casid + 1
+		}
+		return
+	}
+}
+
+// fjoin returns a Memop that prepends or appends the given bytes to the value
+// of an existing key. if casid is non-zero, a cas check will be performed.
+func fjoin(bytes []byte, prepend bool, casid uint64) Memop {
+	return func(old Memval, exists bool) (m Memval, r MemopRes) {
+		r.T = NOT_FOUND
+		if exists {
+			r.T = EXISTS
+			if casid == 0 || old.Casid == casid {
+				nb := make([]byte, 0, len(old.Bytes)+len(bytes))
+				if prepend {
+					nb = append(nb, bytes...)
+					nb = append(nb, old.Bytes...)
+				} else {
+					nb = append(nb, old.Bytes...)
+					nb = append(nb, bytes...)
+				}
+				m = Memval{nb, old.Flags, old.Casid + 1, old.Expires}
+				r.T = STORED
+				r.V = old.Casid + 1
+			}
 		}
 		return
 	}
 }
 
 // fappend returns a Memop that appends the given bytes to the value of an
-// existing key.
-func fappend(bytes []byte) Memop {
-	return func(old Memval, exists bool) (m Memval, r MemopRes) {
-		r.T = NOT_FOUND
-		if exists {
-			nb := make([]byte, len(old.Bytes)+len(bytes))
-			nb = append(nb, old.Bytes...)
-			nb = append(nb, bytes...)
-			m = Memval{nb, old.Flags, old.Casid, old.Expires}
-			r.T = STORED
-		}
-		return
-	}
+// existing key. if casid is non-zero, a cas check will be performed.
+func fappend(bytes []byte, casid uint64) Memop {
+	return fjoin(bytes, false, casid)
 }
 
 // fprepend returns a Memop that prepends the given bytes to the value of an
-// existing key.
-func fprepend(bytes []byte) Memop {
-	return func(old Memval, exists bool) (m Memval, r MemopRes) {
-		r.T = NOT_FOUND
-		if exists {
-			nb := make([]byte, len(old.Bytes)+len(bytes))
-			nb = append(nb, bytes...)
-			nb = append(nb, old.Bytes...)
-			m = Memval{nb, old.Flags, old.Casid, old.Expires}
-			r.T = STORED
-		}
-		return
-	}
+// existing key. if casid is non-zero, a cas check will be performed.
+func fprepend(bytes []byte, casid uint64) Memop {
+	return fjoin(bytes, true, casid)
 }
 
 // fcas returns a Memop that overwrites the value of an existing key, assuming
 // no write has happened since a get returned the data tagged with casid.
-func fcas(bytes []byte, flags uint16, expires time.Time, casid uint64) Memop {
+func fcas(bytes []byte, flags uint32, expires time.Time, casid uint64) Memop {
 	return func(old Memval, exists bool) (m Memval, r MemopRes) {
 		r.T = NOT_FOUND
 		if exists {
@@ -137,27 +143,34 @@ func fcas(bytes []byte, flags uint16, expires time.Time, casid uint64) Memop {
 			if old.Casid == casid {
 				m = Memval{bytes, flags, casid + 1, expires}
 				r.T = STORED
+				r.V = casid + 1
 			}
 		}
 		return
 	}
 }
 
+// CasPMVal is used to hold both CAS and value for incr/decr operations
+type CasVal struct {
+	Casid  uint64
+	NewVal uint64
+}
+
 // fpm returns a Memop that increments or decrements the value of an existing
 // key. it assumes the key's value is a 64-bit unsigned integer, and will fail
 // if the value is larger than 64 bits. overflow will wrap around. underflow is
 // set to 0.
-func fpm(by uint64, plus bool) Memop {
+func fpm(by uint64, def uint64, expires time.Time, plus bool) Memop {
 	return func(old Memval, exists bool) (m Memval, r MemopRes) {
 		r.T = NOT_FOUND
 		if exists {
-			if len(old.Bytes) > 8 {
+			v, err := strconv.ParseUint(string(old.Bytes), 10, 64)
+			if err != nil {
 				r.T = CLIENT_ERROR
-				r.V = errors.New("")
+				r.V = errors.New("non-numeric value found for incr/decr key")
 				return
 			}
 
-			v, _ := binary.Uvarint(old.Bytes)
 			if plus {
 				v += by
 			} else {
@@ -167,11 +180,31 @@ func fpm(by uint64, plus bool) Memop {
 					v -= by
 				}
 			}
-			nb := make([]byte, 8)
-			binary.PutUvarint(nb, v)
-			m = Memval{nb, old.Flags, old.Casid + 1, old.Expires}
+			m = Memval{[]byte(strconv.FormatUint(v, 10)), old.Flags, old.Casid + 1, old.Expires}
 			r.T = STORED
-			r.V = v
+			r.V = CasVal{old.Casid + 1, v}
+		} else {
+			// If the counter does not exist, one of two things may
+			// happen:
+			//
+			//  1. If the expiration value is all one-bits
+			//     (0xffffffff), the operation will fail with
+			//     NOT_FOUND.
+			//  2. For all other expiration values, the operation
+			//     will succeed by seeding the value for this key
+			//     with the provided initial value to expire with
+			//     the provided expiration time.  The flags will be
+			//     set to zero.
+			//
+			if expires.Unix() != math.MaxInt64 {
+				m.Bytes = []byte(strconv.FormatUint(def, 10))
+				m.Expires = expires
+				m.Casid = 1
+				m.Flags = 0
+
+				r.T = STORED
+				r.V = CasVal{1, def}
+			}
 		}
 		return
 	}
@@ -179,14 +212,14 @@ func fpm(by uint64, plus bool) Memop {
 
 // fincr returns a Memop that increments the value of an existing key.
 // the value is assumed to be a 64-bit unsigned integer. overflow wraps.
-func fincr(by uint64) Memop {
-	return fpm(by, true)
+func fincr(by uint64, def uint64, expires time.Time) Memop {
+	return fpm(by, def, expires, true)
 }
 
 // fdecr returns a Memop that decrements the value of an existing key.
 // the value is assumed to be a 64-bit unsigned integer. underflow is set to 0.
-func fdecr(by uint64) Memop {
-	return fpm(by, false)
+func fdecr(by uint64, def uint64, expires time.Time) Memop {
+	return fpm(by, def, expires, false)
 }
 
 // ftouch returns a Memop that updates the expiration time of the given key.

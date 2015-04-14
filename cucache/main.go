@@ -4,15 +4,16 @@ import (
 	"bufio"
 	"bytes"
 	"cuckood"
-	"errors"
+	"encoding/binary"
 	"fmt"
 	"io"
-	"io/ioutil"
+	"math"
 	"net"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
+
+	gomem "github.com/dustin/gomemcached"
 )
 
 var c cuckoo.Cuckoo
@@ -57,54 +58,11 @@ func main() {
 	wg.Wait()
 }
 
-func check_args(o io.Writer, args []string, argv int) bool {
-	if len(args) != argv {
-		o.Write([]byte(fmt.Sprintf("CLIENT_ERROR wrong number of arguments (got %d, expected %d)\r\n", len(args), argv)))
-		return false
-	}
-	return true
+func wtf(req gomem.MCRequest, v cuckoo.MemopRes) {
+	panic(fmt.Sprintf("unexpected result when handling %v: %v\n", req.Opcode, v))
 }
 
-func data(lenarg string, in *bufio.Reader) ([]byte, error) {
-	ln, err := strconv.Atoi(lenarg)
-	if err != nil {
-		return nil, err
-	}
-
-	b := make([]byte, ln)
-	_, err = io.ReadFull(in, b)
-	if err == nil {
-		// remove \r\n
-		r, err := in.ReadByte()
-		if err != nil {
-			return nil, err
-		}
-		n, err := in.ReadByte()
-		if err != nil {
-			return nil, err
-		}
-		if r != '\r' || n != '\n' {
-			return nil, errors.New("data not terminated by \\r\\n")
-		}
-	}
-	return b, err
-}
-
-func cerr(out io.Writer, err error) {
-	out.Write([]byte("CLIENT_ERROR " + err.Error() + "\r\n"))
-}
-
-func serr(out io.Writer, err error) {
-	out.Write([]byte("SERVER_ERROR " + err.Error() + "\r\n"))
-}
-
-func tm(in string) (t time.Time, err error) {
-	var i int
-	i, err = strconv.Atoi(in)
-	if err != nil {
-		return
-	}
-
+func tm(i uint32) (t time.Time) {
 	if i == 0 {
 		return
 	}
@@ -117,205 +75,238 @@ func tm(in string) (t time.Time, err error) {
 	return
 }
 
-func end(v cuckoo.MemopRes, out io.Writer) {
-	if v.T == cuckoo.SERVER_ERROR {
-		serr(out, v.V.(error))
-		return
-	}
-	out.Write([]byte(v.T.String() + "\r\n"))
-}
-
-func setargs(args []string, in *bufio.Reader) (flags uint16, exp time.Time, value []byte, err error) {
-	nbytes := args[len(args)-1]
-	args = args[:len(args)-1]
-	if len(args) >= 1 {
-		var flags_ uint64
-		flags_, err = strconv.ParseUint(args[0], 10, 16)
-		if err != nil {
-			return
-		}
-		flags = uint16(flags_)
-	}
-
-	if len(args) >= 2 {
-		exp, err = tm(args[1])
-		if err != nil {
-			return
-		}
-	}
-
-	value, err = data(nbytes, in)
-	return
-}
-
 func deal(in_ io.Reader, out io.Writer) {
+	//var getq []gomem.MCResponse
+
 	in := bufio.NewReader(in_)
 	for {
-		// TODO: return when writes fail
-		cmd, err := in.ReadString('\n')
+		b, err := in.Peek(1)
 		if err != nil {
 			if err != io.EOF {
-				cerr(out, err)
+				// TODO print error
 			}
 			return
 		}
 
-		args := strings.Fields(strings.TrimSpace(cmd))
-		cmd = args[0]
-		args = args[1:]
+		isbinary := true
+		var req gomem.MCRequest
+		var res gomem.MCResponse
+		if b[0] == gomem.REQ_MAGIC {
+			_, err := req.Receive(in, nil)
+			if err != nil {
+				// TODO: print error
+				continue
+			}
+			res.Opaque = req.Opaque
+		} else {
+			// text protocol fallback
+			cmd, err := in.ReadString('\n')
+			if err != nil {
+				if err != io.EOF {
+					// TODO: print error
+				}
+				return
+			}
 
-		fmt.Println("got cmd", cmd, "with args", args)
-
-		isget := strings.HasPrefix(cmd, "get")
-		if !isget && len(args) != 0 && args[len(args)-1] == "noreply" {
-			out = ioutil.Discard
-			args = args[:len(args)-1]
+			req, err = Text2Req(cmd, in)
+			isbinary = false
 		}
 
-		switch cmd {
-		case "set", "add", "replace", "append", "prepend":
-			var nargs int
-			switch cmd {
-			case "append", "prepend":
-				nargs = 2
-			case "cas":
-				nargs = 5
+		switch req.Opcode {
+		case gomem.GET, gomem.GETQ, gomem.GETK, gomem.GETKQ:
+			res.Status = gomem.KEY_ENOENT
+			v, ok := c.Get(req.Key)
+			if ok {
+				res.Status = gomem.SUCCESS
+				res.Extras = make([]byte, 4)
+				binary.BigEndian.PutUint32(res.Extras, v.Flags)
+				res.Cas = v.Casid
+				res.Body = v.Bytes
+
+				if req.Opcode == gomem.GETK || req.Opcode == gomem.GETKQ {
+					res.Key = req.Key
+				}
+			}
+		case gomem.SET, gomem.SETQ,
+			gomem.ADD, gomem.ADDQ,
+			gomem.REPLACE, gomem.REPLACEQ:
+
+			flags := binary.BigEndian.Uint32(req.Extras[0:4])
+			expiry := tm(binary.BigEndian.Uint32(req.Extras[4:8]))
+			var v cuckoo.MemopRes
+			switch req.Opcode {
+			case gomem.SET, gomem.SETQ:
+				if req.Cas == 0 {
+					v = c.Set(req.Key, req.Body, flags, expiry)
+				} else {
+					v = c.CAS(req.Key, req.Body, flags, expiry, req.Cas)
+				}
+			case gomem.ADD, gomem.ADDQ:
+				v = c.Add(req.Key, req.Body, flags, expiry)
+			case gomem.REPLACE, gomem.REPLACEQ:
+				if req.Cas == 0 {
+					v = c.Replace(req.Key, req.Body, flags, expiry)
+				} else {
+					v = c.CAS(req.Key, req.Body, flags, expiry, req.Cas)
+				}
+			}
+
+			switch v.T {
+			case cuckoo.STORED:
+				res.Status = gomem.SUCCESS
+				res.Cas = v.V.(uint64)
+			case cuckoo.NOT_STORED:
+				res.Status = gomem.NOT_STORED
+			case cuckoo.NOT_FOUND:
+				res.Status = gomem.KEY_ENOENT
+			case cuckoo.EXISTS:
+				res.Status = gomem.KEY_EEXISTS
+			case cuckoo.SERVER_ERROR:
+				res.Status = gomem.ENOMEM
+				fmt.Println(v.V.(error))
 			default:
-				nargs = 4
+				wtf(req, v)
 			}
+		case gomem.DELETE, gomem.DELETEQ:
+			v := c.Delete(req.Key, req.Cas)
 
-			if !check_args(out, args, nargs) {
-				continue
+			switch v.T {
+			case cuckoo.STORED:
+				res.Status = gomem.SUCCESS
+			case cuckoo.NOT_FOUND:
+				res.Status = gomem.KEY_ENOENT
+			case cuckoo.EXISTS:
+				res.Status = gomem.KEY_EEXISTS
+			default:
+				wtf(req, v)
 			}
+		case gomem.INCREMENT, gomem.INCREMENTQ,
+			gomem.DECREMENT, gomem.DECREMENTQ:
 
-			var casid uint64
-			if cmd == "cas" {
-				casid, err = strconv.ParseUint(args[len(args)-1], 10, 64)
-				if err != nil {
-					cerr(out, err)
-					continue
-				}
-				args = args[:len(args)-1]
-			}
+			by := binary.BigEndian.Uint64(req.Extras[0:8])
+			def := binary.BigEndian.Uint64(req.Extras[8:16])
+			exp := tm(binary.BigEndian.Uint32(req.Extras[16:20]))
 
-			key := args[0]
-			args = args[1:]
-			flags, exp, val, err := setargs(args, in)
-			if err != nil {
-				cerr(out, err)
-				continue
-			}
-
-			var v cuckoo.MemopRes
-			switch cmd {
-			case "set":
-				v = c.Set(key, val, uint16(flags), exp)
-			case "add":
-				v = c.Add(key, val, uint16(flags), exp)
-			case "replace":
-				v = c.Replace(key, val, uint16(flags), exp)
-			case "append":
-				v = c.Append(key, val)
-			case "prepend":
-				v = c.Prepend(key, val)
-			case "cas":
-				v = c.CAS(key, val, uint16(flags), exp, casid)
-			}
-
-			end(v, out)
-		case "incr", "decr":
-			if !check_args(out, args, 2) {
-				continue
-			}
-
-			by, err := strconv.ParseUint(args[1], 10, 64)
-			if err != nil {
-				cerr(out, err)
-				continue
+			if binary.BigEndian.Uint32(req.Extras[16:20]) == 0xffffffff {
+				exp = time.Unix(math.MaxInt64, 0)
 			}
 
 			var v cuckoo.MemopRes
-			if cmd == "incr" {
-				v = c.Incr(args[0], by)
+			if req.Opcode == gomem.INCREMENT || req.Opcode == gomem.INCREMENTQ {
+				v = c.Incr(req.Key, by, def, exp)
 			} else {
-				v = c.Decr(args[0], by)
+				v = c.Decr(req.Key, by, def, exp)
 			}
 
-			if v.T == cuckoo.STORED {
-				out.Write([]byte(strconv.FormatUint(v.V.(uint64), 10) + "\r\n"))
-			} else {
-				end(v, out)
+			switch v.T {
+			case cuckoo.STORED:
+				res.Status = gomem.SUCCESS
+				cv := v.V.(cuckoo.CasVal)
+				res.Cas = cv.Casid
+				res.Body = make([]byte, 8)
+				binary.BigEndian.PutUint64(res.Body, cv.NewVal)
+			case cuckoo.CLIENT_ERROR:
+				res.Status = gomem.DELTA_BADVAL
+			case cuckoo.NOT_FOUND:
+				res.Status = gomem.KEY_ENOENT
+			default:
+				wtf(req, v)
 			}
-		case "touch":
-			if !check_args(out, args, 2) {
-				continue
-			}
-
-			exp, err := tm(args[1])
-			if err != nil {
-				cerr(out, err)
-				continue
-			}
-
-			v := c.Touch(args[0], exp)
-			if v.T == cuckoo.STORED {
-				out.Write([]byte("TOUCHED\r\n"))
-			} else {
-				end(v, out)
-			}
-		case "delete":
-			if !check_args(out, args, 1) {
-				continue
-			}
-
-			v := c.Delete(args[0])
-			if v.T == cuckoo.STORED {
-				out.Write([]byte("DELETED\r\n"))
-			} else {
-				end(v, out)
-			}
-		case "get", "gets":
-			res := make(map[string]*cuckoo.Memval)
-
-			var mx sync.Mutex
-			var wg sync.WaitGroup
-			for _, key := range args {
-				wg.Add(1)
-				go func(key string) {
-					defer wg.Done()
-					v, ok := c.Get(key)
-					if ok {
-						mx.Lock()
-						res[key] = v
-						mx.Unlock()
-					}
-				}(key)
-			}
-			wg.Wait()
-
-			var err error
-			for _, key := range args {
-				v, ok := res[key]
-				if ok {
-					_, err = out.Write([]byte(fmt.Sprintf("VALUE %s %d %d %d\r\n", key, v.Flags, len(v.Bytes), v.Casid)))
-					if err != nil {
-						return
-					}
-					_, err = out.Write(v.Bytes)
-					if err != nil {
-						return
-					}
-					out.Write([]byte{'\r', '\n'})
-				}
-			}
-			out.Write([]byte("END\r\n"))
-		case "quit":
+		case gomem.QUIT, gomem.QUITQ:
 			return
-		case "flush_all":
+		case gomem.FLUSH, gomem.FLUSHQ:
+			// TODO: handle optional "now" argument
 			// TODO: this is probably terrible
 			c = cuckoo.New()
-			out.Write([]byte("OK\r\n"))
+			res.Status = gomem.SUCCESS
+		case gomem.NOOP:
+			// TODO: this should flush any quieted gets
+			res.Status = gomem.SUCCESS
+		case gomem.VERSION:
+			res.Status = gomem.SUCCESS
+			// TODO: res.Body =
+		case gomem.APPEND, gomem.APPENDQ,
+			gomem.PREPEND, gomem.PREPENDQ:
+
+			var v cuckoo.MemopRes
+			switch req.Opcode {
+			case gomem.APPEND, gomem.APPENDQ:
+				v = c.Append(req.Key, req.Body, req.Cas)
+			case gomem.PREPEND, gomem.PREPENDQ:
+				v = c.Prepend(req.Key, req.Body, req.Cas)
+			}
+
+			switch v.T {
+			case cuckoo.STORED:
+				res.Status = gomem.SUCCESS
+			case cuckoo.EXISTS:
+				res.Status = gomem.KEY_EEXISTS
+			case cuckoo.NOT_FOUND:
+				res.Status = gomem.KEY_ENOENT
+			default:
+				wtf(req, v)
+			}
 		default:
+			res.Status = gomem.UNKNOWN_COMMAND
+		}
+
+		if req.Opcode.IsQuiet() && res.Status == gomem.SUCCESS {
+			if req.Opcode == gomem.GETQ || req.Opcode == gomem.GETKQ {
+				// TODO: this response should be queued
+				// getq = append(getq, res)
+			} else {
+				continue
+			}
+		}
+
+		if (req.Opcode == gomem.GETQ || req.Opcode == gomem.GETKQ) && res.Status == gomem.KEY_ENOENT {
+			// no warning on cache miss
+			continue
+		}
+
+		if res.Status != gomem.SUCCESS {
+			fmt.Println(req.Opcode, res.Status)
+		}
+
+		if isbinary {
+			res.Transmit(out)
+			continue
+		}
+
+		if req.Opcode.IsQuiet() && res.Status == gomem.SUCCESS && req.Opcode != gomem.GET {
+			// there is absolutely no reason to reply here
+			continue
+		}
+
+		// TODO: return when writes fail
+		switch res.Status {
+		case gomem.SUCCESS:
+			switch req.Opcode {
+			case gomem.GET, gomem.GETQ:
+				flags := binary.BigEndian.Uint32(res.Extras[0:4])
+				out.Write([]byte(fmt.Sprintf("VALUE %s %d %d %d\r\n", req.Key, flags, len(res.Body), res.Cas)))
+				out.Write(res.Body)
+				out.Write([]byte{'\r', '\n'})
+				out.Write([]byte("END\r\n"))
+			case gomem.SET, gomem.ADD, gomem.REPLACE:
+				out.Write([]byte("STORED\r\n"))
+			case gomem.DELETE:
+				out.Write([]byte("DELETED\r\n"))
+			case gomem.INCREMENT, gomem.DECREMENT:
+				v := binary.BigEndian.Uint64(res.Body)
+				out.Write([]byte(strconv.FormatUint(v, 10) + "\r\n"))
+			}
+		case gomem.KEY_ENOENT:
+			out.Write([]byte("NOT_FOUND\r\n"))
+		case gomem.KEY_EEXISTS:
+			out.Write([]byte("EXISTS\r\n"))
+		case gomem.NOT_STORED:
+			out.Write([]byte("NOT_STORED\r\n"))
+		case gomem.ENOMEM:
+			out.Write([]byte("SERVER_ERROR no space for new entry\r\n"))
+		case gomem.DELTA_BADVAL:
+			out.Write([]byte("CLIENT_ERROR incr/decr on non-numeric field\r\n"))
+		case gomem.UNKNOWN_COMMAND:
 			out.Write([]byte("ERROR\r\n"))
 		}
 	}
@@ -330,9 +321,7 @@ func replyTo(in []byte, to *net.UDPAddr) {
 	defer u.Close()
 
 	var o bytes.Buffer
-	fmt.Println("UDP deal")
 	deal(bytes.NewBuffer(in), &o)
-	fmt.Println("UDP done deal")
 	_, err = u.WriteTo(o.Bytes(), to)
 	if err != nil {
 		fmt.Println(err)
@@ -340,8 +329,6 @@ func replyTo(in []byte, to *net.UDPAddr) {
 }
 
 func handleConnection(c net.Conn) {
-	fmt.Println("TCP deal")
 	deal(c, c)
-	fmt.Println("TCP done deal")
 	c.Close()
 }

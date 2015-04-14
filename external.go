@@ -28,54 +28,54 @@ func New() Cuckoo {
 }
 
 // Set overwites the given key
-func (c Cuckoo) Set(key string, bytes []byte, flags uint16, expires time.Time) MemopRes {
+func (c Cuckoo) Set(key []byte, bytes []byte, flags uint32, expires time.Time) MemopRes {
 	return c.op(key, fset(bytes, flags, expires))
 }
 
 // Add adds a non-existing key
-func (c Cuckoo) Add(key string, bytes []byte, flags uint16, expires time.Time) MemopRes {
+func (c Cuckoo) Add(key []byte, bytes []byte, flags uint32, expires time.Time) MemopRes {
 	return c.op(key, fadd(bytes, flags, expires))
 }
 
 // Replace replaces an existing key
-func (c Cuckoo) Replace(key string, bytes []byte, flags uint16, expires time.Time) MemopRes {
+func (c Cuckoo) Replace(key []byte, bytes []byte, flags uint32, expires time.Time) MemopRes {
 	return c.op(key, freplace(bytes, flags, expires))
 }
 
 // Append adds to an existing key
-func (c Cuckoo) Append(key string, bytes []byte) MemopRes {
-	return c.op(key, fappend(bytes))
+func (c Cuckoo) Append(key []byte, bytes []byte, casid uint64) MemopRes {
+	return c.op(key, fappend(bytes, casid))
 }
 
 // Prepend adds to the beginning of an existing key
-func (c Cuckoo) Prepend(key string, bytes []byte) MemopRes {
-	return c.op(key, fprepend(bytes))
+func (c Cuckoo) Prepend(key []byte, bytes []byte, casid uint64) MemopRes {
+	return c.op(key, fprepend(bytes, casid))
 }
 
 // CAS overwrites the value for a key if it has not changed
-func (c Cuckoo) CAS(key string, bytes []byte, flags uint16, expires time.Time, casid uint64) MemopRes {
+func (c Cuckoo) CAS(key []byte, bytes []byte, flags uint32, expires time.Time, casid uint64) MemopRes {
 	return c.op(key, fcas(bytes, flags, expires, casid))
 }
 
 // Incr increments the value for an existing key
-func (c Cuckoo) Incr(key string, by uint64) MemopRes {
-	return c.op(key, fincr(by))
+func (c Cuckoo) Incr(key []byte, by uint64, def uint64, expires time.Time) MemopRes {
+	return c.op(key, fincr(by, def, expires))
 }
 
 // Decr decrements the value for an existing key
-func (c Cuckoo) Decr(key string, by uint64) MemopRes {
-	return c.op(key, fdecr(by))
+func (c Cuckoo) Decr(key []byte, by uint64, def uint64, expires time.Time) MemopRes {
+	return c.op(key, fdecr(by, def, expires))
 }
 
 // Touch updates the expiration time for an existing key
-func (c Cuckoo) Touch(key string, expires time.Time) MemopRes {
+func (c Cuckoo) Touch(key []byte, expires time.Time) MemopRes {
 	return c.op(key, ftouch(expires))
 }
 
 // op executes a particular Memop on the given key.
 // it will automatically increase the number of hashes when the map starts to
 // become overloaded, but may fail if the map becomes too large.
-func (c Cuckoo) op(key string, upd Memop) MemopRes {
+func (c Cuckoo) op(key []byte, upd Memop) MemopRes {
 	h := c.hashes
 	res := c.insert(keyt(key), upd)
 
@@ -96,12 +96,12 @@ func (c Cuckoo) op(key string, upd Memop) MemopRes {
 }
 
 // Delete removes the value for the given key
-func (c Cuckoo) Delete(key string) MemopRes {
-	return c.del(keyt(key))
+func (c Cuckoo) Delete(key []byte, casid uint64) MemopRes {
+	return c.del(keyt(key), casid)
 }
 
 // Get returns the current value for the given key
-func (c Cuckoo) Get(key string) (*Memval, bool) {
+func (c Cuckoo) Get(key []byte) (*Memval, bool) {
 	v := c.get(keyt(key))
 	if v.T == NOT_FOUND {
 		return nil, false

@@ -43,8 +43,9 @@ func (m *cmap) iterate() <-chan cval {
 	return ch
 }
 
-// del removes the entry with the given key (if any), and returns its value
-func (m *cmap) del(key keyt) (ret MemopRes) {
+// del removes the entry with the given key (if any), and returns its value. if
+// casid is non-zero, the element will only be deleted if its id matches.
+func (m *cmap) del(key keyt, casid uint64) (ret MemopRes) {
 	now := time.Now()
 	bins := m.kbins(key)
 
@@ -55,8 +56,15 @@ func (m *cmap) del(key keyt) (ret MemopRes) {
 	for _, bin := range bins {
 		ki := m.bins[bin].has(key, now)
 		if ki != -1 {
-			ret.T = DELETED
-			ret.V = &m.bins[bin].v(ki).val
+			v := &m.bins[bin].v(ki).val
+
+			if casid != 0 && v.Casid != casid {
+				ret.T = EXISTS
+				return
+			}
+
+			ret.T = STORED
+			ret.V = v
 			m.bins[bin].kill(ki)
 			return
 		}
