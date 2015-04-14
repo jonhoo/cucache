@@ -19,7 +19,7 @@ func str2op(cmd string, quiet bool) (cc gomem.CommandCode) {
 		case "set":
 			cc = gomem.SET
 		case "get", "gets":
-			cc = gomem.GET
+			cc = gomem.GETK
 		case "add":
 			cc = gomem.ADD
 		case "replace":
@@ -47,8 +47,6 @@ func str2op(cmd string, quiet bool) (cc gomem.CommandCode) {
 		switch cmd {
 		case "set":
 			cc = gomem.SETQ
-		case "get", "gets":
-			cc = gomem.GETQ
 		case "add":
 			cc = gomem.ADDQ
 		case "replace":
