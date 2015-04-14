@@ -305,7 +305,9 @@ func deal(in_ io.Reader, out io.Writer) {
 		}
 
 		if res.Status != gomem.SUCCESS {
-			fmt.Println(req.Opcode, res.Status)
+			if !(res.Status == gomem.KEY_ENOENT && (req.Opcode == gomem.GET || req.Opcode == gomem.GETK)) {
+				fmt.Println(req.Opcode, res.Status)
+			}
 		}
 
 		if isbinary {
