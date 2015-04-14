@@ -258,6 +258,25 @@ func req2res(req *gomem.MCRequest) (res gomem.MCResponse) {
 		res.Status = gomem.UNKNOWN_COMMAND
 	}
 
+	switch res.Status {
+	case gomem.KEY_ENOENT:
+		res.Body = []byte("Not found")
+	case gomem.KEY_EEXISTS:
+		res.Body = []byte("Data exists for key.")
+	case gomem.NOT_STORED:
+		res.Body = []byte("Not stored.")
+	case gomem.ENOMEM:
+		res.Body = []byte("Out of memory")
+	case gomem.UNKNOWN_COMMAND:
+		res.Body = []byte("Unknown command")
+	case gomem.EINVAL:
+		res.Body = []byte("Invalid arguments")
+	case gomem.E2BIG:
+		res.Body = []byte("Too large.")
+	case gomem.DELTA_BADVAL:
+		res.Body = []byte("Non-numeric server-side value for incr or decr")
+	}
+
 	return
 }
 
