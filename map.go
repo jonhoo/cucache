@@ -158,7 +158,7 @@ func (m *cmap) get(key keyt) (ret MemopRes) {
 
 	ret.T = NOT_FOUND
 	for _, bin := range bins {
-		b := m.bins[bin]
+		b := &m.bins[bin]
 		for i := 0; i < ASSOCIATIVITY; i++ {
 			s := b.v(i)
 			if s != nil && s.present(now) && bytes.Equal(s.key, key) {
