@@ -6,9 +6,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math/rand"
-	"os"
 	"runtime"
-	"runtime/pprof"
 	"strconv"
 	"sync"
 	"testing"
@@ -19,8 +17,8 @@ var never = time.Time{}
 
 func TestSimple(t *testing.T) {
 	c := cuckoo.New()
-	c.Set("hello", []byte("world"), 0, never)
-	v, ok := c.Get("hello")
+	c.Set([]byte("hello"), []byte("world"), 0, never)
+	v, ok := c.Get([]byte("hello"))
 
 	if !ok {
 		t.Error("Get did not return successfully")
@@ -38,8 +36,8 @@ func TestMany(t *testing.T) {
 		j := uint64(rand.Int63())
 		b := make([]byte, 8)
 		binary.BigEndian.PutUint64(b, j)
-		c.Set(strconv.FormatUint(j, 10), b, 0, never)
-		v, ok := c.Get(strconv.FormatUint(j, 10))
+		c.Set([]byte(strconv.FormatUint(j, 10)), b, 0, never)
+		v, ok := c.Get([]byte(strconv.FormatUint(j, 10)))
 		if !ok {
 			t.Error("Concurrent get failed")
 		}
@@ -47,12 +45,6 @@ func TestMany(t *testing.T) {
 			t.Error("Concurrent get did not return correct value")
 		}
 	}
-}
-
-type igtime struct {
-	i      int
-	insert time.Duration
-	get    time.Duration
 }
 
 func TestConcurrent(t *testing.T) {
@@ -67,16 +59,6 @@ func TestConcurrent(t *testing.T) {
 		}
 	}()
 
-	os.Remove("results.log")
-	res, _ := os.Create("results.log")
-	tms := make(chan igtime)
-	go func() {
-		for tm := range tms {
-			fmt.Fprintf(res, "%d %f %f\n", tm.i, tm.insert.Seconds(), tm.get.Seconds())
-		}
-		res.Close()
-	}()
-
 	var wg sync.WaitGroup
 	ch := make(chan int)
 	for i := 0; i < 1000; i++ {
@@ -84,25 +66,18 @@ func TestConcurrent(t *testing.T) {
 		go func(wid int) {
 			defer wg.Done()
 			for i := range ch {
-				tm := igtime{}
-
-				start := time.Now()
-
 				j := i
 				b := make([]byte, 8)
 				binary.BigEndian.PutUint64(b, uint64(j))
 
-				e := c.Set(strconv.Itoa(i), b, 0, never)
-				tm.insert = time.Now().Sub(start)
+				e := c.Set([]byte(strconv.Itoa(i)), b, 0, never)
 
 				if e.T != cuckoo.STORED {
 					ech <- true
 					continue
 				}
 
-				start = time.Now()
-				v, ok := c.Get(strconv.Itoa(i))
-				tm.get = time.Now().Sub(start)
+				v, ok := c.Get([]byte(strconv.Itoa(i)))
 
 				if !ok {
 					t.Error("Concurrent get failed")
@@ -110,16 +85,10 @@ func TestConcurrent(t *testing.T) {
 				if !bytes.Equal(b, v.Bytes) {
 					t.Error("Concurrent get did not return correct value")
 				}
-
-				tm.i = i
-				tms <- tm
 			}
 		}(i)
 	}
 
-	os.Remove("cpu.out")
-	cpu, _ := os.Create("cpu.out")
-	pprof.StartCPUProfile(cpu)
 	for i := 0; i < 70e3; i++ {
 		ch <- i
 
@@ -129,16 +98,8 @@ func TestConcurrent(t *testing.T) {
 	}
 	close(ch)
 	wg.Wait()
-	close(tms)
 
 	fmt.Println("observed", errs, "insert errors")
-
-	os.Remove("mem.out")
-	mem, _ := os.Create("mem.out")
-	pprof.WriteHeapProfile(mem)
-
-	pprof.StopCPUProfile()
-	cpu.Close()
 }
 
 func TestSameKey(t *testing.T) {
@@ -146,7 +107,7 @@ func TestSameKey(t *testing.T) {
 	c := cuckoo.New()
 
 	get := func() {
-		v, ok := c.Get("a")
+		v, ok := c.Get([]byte("a"))
 		if !ok {
 			t.Error("key lost")
 		}
@@ -161,7 +122,7 @@ func TestSameKey(t *testing.T) {
 		defer wg.Done()
 		b := []byte{0x1}
 		for i := 0; i < 1e5; i++ {
-			c.Set("a", b, 0, never)
+			c.Set([]byte("a"), b, 0, never)
 			get()
 		}
 	}()
@@ -170,7 +131,7 @@ func TestSameKey(t *testing.T) {
 		defer wg.Done()
 		b := []byte{0x2}
 		for i := 0; i < 1e5; i++ {
-			c.Set("a", b, 0, never)
+			c.Set([]byte("a"), b, 0, never)
 			get()
 		}
 	}()
