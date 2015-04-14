@@ -158,6 +158,7 @@ func deal(in_ io.Reader, out io.Writer) {
 			req, err = text.ToMCRequest(cmd, in)
 			isbinary = false
 		}
+		res.Opcode = req.Opcode
 
 		switch req.Opcode {
 		case gomem.GET, gomem.GETQ, gomem.GETK, gomem.GETKQ:
