@@ -117,10 +117,10 @@ func tm(i uint32) (t time.Time) {
 	return
 }
 
-func deal(in_ io.Reader, out io.Writer) {
-	var getq []*gomem.MCResponse
-
+func deal(in_ io.Reader, out_ io.Writer) {
 	in := bufio.NewReader(in_)
+	out := bufio.NewWriter(out_)
+
 	for {
 		b, err := in.Peek(1)
 		if err != nil {
@@ -299,8 +299,7 @@ func deal(in_ io.Reader, out io.Writer) {
 
 		if req.Opcode.IsQuiet() && res.Status == gomem.SUCCESS {
 			if req.Opcode == gomem.GETQ || req.Opcode == gomem.GETKQ {
-				getq = append(getq, &res)
-				continue
+				// simply don't flush
 			} else {
 				continue
 			}
@@ -318,17 +317,13 @@ func deal(in_ io.Reader, out io.Writer) {
 		}
 
 		if isbinary {
+			res.Transmit(&out)
+
 			// "The getq command is both mum on cache miss and quiet,
 			// holding its response until a non-quiet command is issued."
-			if !req.Opcode.IsQuiet() && len(getq) != 0 {
-				// flush quieted get replies
-				for _, r := range getq {
-					r.Transmit(out)
-				}
-				getq = getq[:0]
+			if req.Opcode.IsQuiet() == false {
+				out.Flush()
 			}
-
-			res.Transmit(out)
 			continue
 		}
 
