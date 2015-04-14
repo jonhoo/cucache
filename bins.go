@@ -68,8 +68,7 @@ type cbin struct {
 // this function is safe in the face of concurrent updates, assuming writers
 // use setv().
 func (b *cbin) v(i int) *cval {
-	v := atomic.LoadPointer(&b.vals[i])
-	return (*cval)(v)
+	return (*cval)(atomic.LoadPointer(&b.vals[i]))
 }
 
 // vpresent returns true if the given slot contains unexpired key data
