@@ -5,12 +5,17 @@ import (
 	"bytes"
 	"cuckood"
 	"encoding/binary"
+	"flag"
 	"fmt"
 	"io"
 	"math"
 	"net"
+	"os"
+	"os/signal"
+	"runtime/pprof"
 	"strconv"
 	"sync"
+	"syscall"
 	"time"
 
 	gomem "github.com/dustin/gomemcached"
@@ -19,7 +24,43 @@ import (
 var c cuckoo.Cuckoo
 
 func main() {
+	cpuprofile := flag.String("cpuprofile", "", "CPU profile output file")
+	flag.Parse()
+
 	c = cuckoo.New()
+
+	var pf *os.File
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, os.Interrupt, syscall.SIGABRT)
+	go func() {
+		for s := range sigs {
+			if pf != nil {
+				pprof.StopCPUProfile()
+				err := pf.Close()
+				if err != nil {
+					fmt.Println("could not end cpu profile:", err)
+				}
+			}
+			if s == os.Interrupt {
+				os.Exit(0)
+			}
+		}
+	}()
+
+	var err error
+	if cpuprofile != nil && *cpuprofile != "" {
+		fmt.Println("starting CPU profiling")
+		pf, err = os.Create(*cpuprofile)
+		if err != nil {
+			fmt.Printf("could not create CPU profile file %v: %v\n", *cpuprofile, err)
+			return
+		}
+		err = pprof.StartCPUProfile(pf)
+		if err != nil {
+			fmt.Printf("could not start CPU profiling: %v\n", err)
+			return
+		}
+	}
 
 	var wg sync.WaitGroup
 	wg.Add(1)
