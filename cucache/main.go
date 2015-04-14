@@ -120,6 +120,7 @@ func tm(i uint32) (t time.Time) {
 func deal(in_ io.Reader, out_ io.Writer) {
 	in := bufio.NewReader(in_)
 	out := bufio.NewWriter(out_)
+	mx := new(sync.Mutex)
 
 	for {
 		b, err := in.Peek(1)
@@ -317,12 +318,23 @@ func deal(in_ io.Reader, out_ io.Writer) {
 		}
 
 		if isbinary {
-			res.Transmit(&out)
+			b := res.Bytes()
+
+			mx.Lock()
+			out.Write(b)
 
 			// "The getq command is both mum on cache miss and quiet,
 			// holding its response until a non-quiet command is issued."
 			if req.Opcode.IsQuiet() == false {
-				out.Flush()
+				// This construct allows us to overlap handling
+				// the next request with the flushing of this
+				// request's output
+				go func() {
+					mx.Unlock()
+					out.Flush()
+				}()
+			} else {
+				mx.Unlock()
 			}
 			continue
 		}
