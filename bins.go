@@ -2,39 +2,55 @@ package cuckoo
 
 import (
 	"bytes"
-	"encoding/binary"
-	"hash/fnv"
 	"sync/atomic"
 	"time"
 	"unsafe"
 )
 
+// offset64 is the fnv1a 64-bit offset
+var offset64 uint64 = 14695981039346656037
+
+// prime64 is the fnv1a 64-bit prime
+var prime64 uint64 = 1099511628211
+
+var intoffs []uint = []uint{0, 8, 16, 24}
+
 // bin returns the nth hash of the given key
 func (m *cmap) bin(n int, key keyt) int {
-	h := fnv.New64a()
-	h.Write(key)
-
-	var bs [8]byte
-	binary.PutVarint(bs[:], int64(n))
-	h.Write(bs[:])
-
-	return int(h.Sum64() % uint64(len(m.bins)))
+	s := offset64
+	for _, c := range key {
+		s ^= uint64(c)
+		s *= prime64
+	}
+	for _, i := range intoffs {
+		s ^= uint64(n >> i)
+		s *= prime64
+	}
+	return int(s % uint64(len(m.bins)))
 }
 
 // kbins returns all hashes of the given key.
 // as m.hashes increases, this function will return more hashes.
 func (m *cmap) kbins(key keyt) []int {
-	bins := make([]int, 0, m.hashes)
-	h := fnv.New64a()
-	for i := 0; i < int(m.hashes); i++ {
-		h.Reset()
-		h.Write(key)
+	nb := uint64(len(m.bins))
+	nh := int(m.hashes)
+	bins := make([]int, nh)
 
-		var bs [8]byte
-		binary.PutVarint(bs[:], int64(i))
-		h.Write(bs[:])
+	// only hash the key once
+	s := offset64
+	for _, c := range key {
+		s ^= uint64(c)
+		s *= prime64
+	}
 
-		bins = append(bins, int(h.Sum64()%uint64(len(m.bins))))
+	for i := 0; i < nh; i++ {
+		// compute key for this i
+		s_ := s
+		for _, o := range intoffs {
+			s_ ^= uint64(i >> o)
+			s_ *= prime64
+		}
+		bins[i] = int(s_ % nb)
 	}
 	return bins
 }
