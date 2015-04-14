@@ -124,9 +124,10 @@ func deal(in_ io.Reader, out io.Writer) {
 	for {
 		b, err := in.Peek(1)
 		if err != nil {
-			if err != io.EOF {
-				// TODO print error
+			if err == io.EOF {
+				return
 			}
+			// TODO print error
 			return
 		}
 
@@ -136,6 +137,9 @@ func deal(in_ io.Reader, out io.Writer) {
 		if b[0] == gomem.REQ_MAGIC {
 			_, err := req.Receive(in, nil)
 			if err != nil {
+				if err == io.EOF {
+					return
+				}
 				// TODO: print error
 				continue
 			}
@@ -144,9 +148,10 @@ func deal(in_ io.Reader, out io.Writer) {
 			// text protocol fallback
 			cmd, err := in.ReadString('\n')
 			if err != nil {
-				if err != io.EOF {
-					// TODO: print error
+				if err == io.EOF {
+					return
 				}
+				// TODO: print error
 				return
 			}
 
