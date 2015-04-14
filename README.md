@@ -19,7 +19,7 @@ protocol.
 
   - Timed flush does not work
   - Keyspace must be pre-allocated (!!!)
-  - Delay response to quiet GETs
+  - Unbounded buffering (quieted gets and #bytes for sets)
   - Multi-gets using text protocol do not work
   - Configurable debugging information output
   - The touch command for the text protocol does not work (no binary equivalent)

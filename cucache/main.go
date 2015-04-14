@@ -76,7 +76,7 @@ func tm(i uint32) (t time.Time) {
 }
 
 func deal(in_ io.Reader, out io.Writer) {
-	//var getq []gomem.MCResponse
+	var getq []*gomem.MCResponse
 
 	in := bufio.NewReader(in_)
 	for {
@@ -220,7 +220,6 @@ func deal(in_ io.Reader, out io.Writer) {
 			c = cuckoo.New()
 			res.Status = gomem.SUCCESS
 		case gomem.NOOP:
-			// TODO: this should flush any quieted gets
 			res.Status = gomem.SUCCESS
 		case gomem.VERSION:
 			res.Status = gomem.SUCCESS
@@ -252,8 +251,8 @@ func deal(in_ io.Reader, out io.Writer) {
 
 		if req.Opcode.IsQuiet() && res.Status == gomem.SUCCESS {
 			if req.Opcode == gomem.GETQ || req.Opcode == gomem.GETKQ {
-				// TODO: this response should be queued
-				// getq = append(getq, res)
+				getq = append(getq, &res)
+				continue
 			} else {
 				continue
 			}
@@ -269,6 +268,16 @@ func deal(in_ io.Reader, out io.Writer) {
 		}
 
 		if isbinary {
+			// "The getq command is both mum on cache miss and quiet,
+			// holding its response until a non-quiet command is issued."
+			if !req.Opcode.IsQuiet() && len(getq) != 0 {
+				// flush quieted get replies
+				for _, r := range getq {
+					r.Transmit(out)
+				}
+				getq = getq[:0]
+			}
+
 			res.Transmit(out)
 			continue
 		}
