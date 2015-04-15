@@ -11,6 +11,17 @@ import (
 	gomem "github.com/dustin/gomemcached"
 )
 
+var errorValues = map[gomem.Status][]byte{
+	gomem.KEY_ENOENT:      []byte("Not found"),
+	gomem.KEY_EEXISTS:     []byte("Data exists for key."),
+	gomem.NOT_STORED:      []byte("Not stored."),
+	gomem.ENOMEM:          []byte("Out of memory"),
+	gomem.UNKNOWN_COMMAND: []byte("Unknown command"),
+	gomem.EINVAL:          []byte("Invalid arguments"),
+	gomem.E2BIG:           []byte("Too large."),
+	gomem.DELTA_BADVAL:    []byte("Non-numeric server-side value for incr or decr"),
+}
+
 func tm(i uint32) (t time.Time) {
 	if i == 0 {
 		return
@@ -175,23 +186,8 @@ func req2res(req *gomem.MCRequest) (res *gomem.MCResponse) {
 		res.Status = gomem.UNKNOWN_COMMAND
 	}
 
-	switch res.Status {
-	case gomem.KEY_ENOENT:
-		res.Body = []byte("Not found")
-	case gomem.KEY_EEXISTS:
-		res.Body = []byte("Data exists for key.")
-	case gomem.NOT_STORED:
-		res.Body = []byte("Not stored.")
-	case gomem.ENOMEM:
-		res.Body = []byte("Out of memory")
-	case gomem.UNKNOWN_COMMAND:
-		res.Body = []byte("Unknown command")
-	case gomem.EINVAL:
-		res.Body = []byte("Invalid arguments")
-	case gomem.E2BIG:
-		res.Body = []byte("Too large.")
-	case gomem.DELTA_BADVAL:
-		res.Body = []byte("Non-numeric server-side value for incr or decr")
+	if b, ok := errorValues[res.Status]; ok {
+		res.Body = b
 	}
 
 	return
