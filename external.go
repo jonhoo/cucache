@@ -22,7 +22,7 @@ type Cuckoo struct{ *cmap }
 // spilling items.
 func New() Cuckoo {
 	m := new(cmap)
-	m.bins = make([]cbin, 1e4 /* TODO: all of main memory */)
+	m.bins = make([]cbin, 1e5 /* TODO: all of main memory */)
 	m.hashes = 2
 	return Cuckoo{m}
 }
