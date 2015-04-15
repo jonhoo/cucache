@@ -12,7 +12,7 @@ var binP sync.Pool
 
 func init() {
 	binP.New = func() interface{} {
-		return make([]int, MAX_HASHES)
+		return make([]int, 0, MAX_HASHES)
 	}
 }
 
