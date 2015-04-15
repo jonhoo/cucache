@@ -68,8 +68,9 @@ func (m *cmap) touchall(exp time.Time) {
 // casid is non-zero, the element will only be deleted if its id matches.
 func (m *cmap) del(key keyt, casid uint64) (ret MemopRes) {
 	now := time.Now()
-	bins := m.kbins(key)
-	defer binP.Put(bins)
+	bins_ := m.kbins(key)
+	bins := *bins_
+	defer binP.Put(bins_)
 
 	m.lock_in_order(bins...)
 	defer m.unlock(bins...)
@@ -99,7 +100,8 @@ func (m *cmap) del(key keyt, casid uint64) (ret MemopRes) {
 // old value under a lock.
 func (m *cmap) insert(key keyt, upd Memop) (ret MemopRes) {
 	now := time.Now()
-	bins := m.kbins(key)
+	bins_ := m.kbins(key)
+	bins := *bins_
 	ival := cval{key: key}
 
 	// Check if this element is already present
@@ -114,7 +116,7 @@ func (m *cmap) insert(key keyt, upd Memop) (ret MemopRes) {
 				b.setv(ki, &ival)
 			}
 			m.unlock(bins...)
-			binP.Put(bins)
+			binP.Put(bins_)
 			return
 		}
 	}
@@ -126,7 +128,7 @@ func (m *cmap) insert(key keyt, upd Memop) (ret MemopRes) {
 			ival.bno = i
 			ret = m.bins[b].add(&ival, upd, now)
 			if ret.T != SERVER_ERROR {
-				binP.Put(bins)
+				binP.Put(bins_)
 				return
 			}
 		}
@@ -138,7 +140,7 @@ func (m *cmap) insert(key keyt, upd Memop) (ret MemopRes) {
 		if path == nil {
 			// XXX: ideally we'd do a resize here, but without
 			// locking everything...
-			binP.Put(bins)
+			binP.Put(bins_)
 			return MemopRes{
 				T: SERVER_ERROR,
 				E: errors.New("no storage space found for element"),
@@ -148,8 +150,9 @@ func (m *cmap) insert(key keyt, upd Memop) (ret MemopRes) {
 		freeing := path[0].from
 
 		// recompute bins because #hashes might have changed
-		binP.Put(bins)
-		bins = m.kbins(key)
+		binP.Put(bins_)
+		bins_ = m.kbins(key)
+		bins = *bins_
 
 		// sanity check that this path will make room in the right bin
 		tobin := -1
@@ -171,7 +174,7 @@ func (m *cmap) insert(key keyt, upd Memop) (ret MemopRes) {
 			// lock too
 			ret = m.bins[freeing].add(&ival, upd, now)
 			if ret.T != SERVER_ERROR {
-				binP.Put(bins)
+				binP.Put(bins_)
 				return
 			}
 		}
@@ -181,7 +184,8 @@ func (m *cmap) insert(key keyt, upd Memop) (ret MemopRes) {
 // get returns the current value (if any) for the given key
 func (m *cmap) get(key keyt) (ret MemopRes) {
 	now := time.Now()
-	bins := m.kbins(key)
+	bins_ := m.kbins(key)
+	bins := *bins_
 
 	ret.T = NOT_FOUND
 	for _, bin := range bins {
@@ -191,12 +195,12 @@ func (m *cmap) get(key keyt) (ret MemopRes) {
 			if s != nil && s.present(now) && bytes.Equal(s.key, key) {
 				ret.T = EXISTS
 				ret.M = &s.val
-				binP.Put(bins)
+				binP.Put(bins_)
 				return
 			}
 		}
 	}
-	binP.Put(bins)
+	binP.Put(bins_)
 	return
 }
 
