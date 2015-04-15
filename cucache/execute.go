@@ -24,7 +24,13 @@ func tm(i uint32) (t time.Time) {
 }
 
 func req2res(req *gomem.MCRequest) (res *gomem.MCResponse) {
-	res = new(gomem.MCResponse)
+	res = resP.Get().(*gomem.MCResponse)
+	res.Cas = 0
+	res.Key = nil
+	res.Body = nil
+	res.Extras = nil
+	res.Fatal = false
+	res.Status = 0
 
 	res.Opaque = req.Opaque
 	res.Opcode = req.Opcode

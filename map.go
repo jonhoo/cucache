@@ -69,6 +69,7 @@ func (m *cmap) touchall(exp time.Time) {
 func (m *cmap) del(key keyt, casid uint64) (ret MemopRes) {
 	now := time.Now()
 	bins := m.kbins(key)
+	defer binP.Put(bins)
 
 	m.lock_in_order(bins...)
 	defer m.unlock(bins...)
@@ -113,6 +114,7 @@ func (m *cmap) insert(key keyt, upd Memop) (ret MemopRes) {
 				b.setv(ki, &ival)
 			}
 			m.unlock(bins...)
+			binP.Put(bins)
 			return
 		}
 	}
@@ -124,6 +126,7 @@ func (m *cmap) insert(key keyt, upd Memop) (ret MemopRes) {
 			ival.bno = i
 			ret = m.bins[b].add(&ival, upd, now)
 			if ret.T != SERVER_ERROR {
+				binP.Put(bins)
 				return
 			}
 		}
@@ -135,6 +138,7 @@ func (m *cmap) insert(key keyt, upd Memop) (ret MemopRes) {
 		if path == nil {
 			// XXX: ideally we'd do a resize here, but without
 			// locking everything...
+			binP.Put(bins)
 			return MemopRes{
 				T: SERVER_ERROR,
 				V: errors.New("no storage space found for element"),
@@ -144,6 +148,7 @@ func (m *cmap) insert(key keyt, upd Memop) (ret MemopRes) {
 		freeing := path[0].from
 
 		// recompute bins because #hashes might have changed
+		binP.Put(bins)
 		bins = m.kbins(key)
 
 		// sanity check that this path will make room in the right bin
@@ -166,6 +171,7 @@ func (m *cmap) insert(key keyt, upd Memop) (ret MemopRes) {
 			// lock too
 			ret = m.bins[freeing].add(&ival, upd, now)
 			if ret.T != SERVER_ERROR {
+				binP.Put(bins)
 				return
 			}
 		}
@@ -176,6 +182,7 @@ func (m *cmap) insert(key keyt, upd Memop) (ret MemopRes) {
 func (m *cmap) get(key keyt) (ret MemopRes) {
 	now := time.Now()
 	bins := m.kbins(key)
+	defer binP.Put(bins)
 
 	ret.T = NOT_FOUND
 	for _, bin := range bins {

@@ -21,6 +21,17 @@ import (
 )
 
 var c cuckoo.Cuckoo
+var reqP sync.Pool
+var resP sync.Pool
+
+func init() {
+	reqP.New = func() interface{} {
+		return new(gomem.MCRequest)
+	}
+	resP.New = func() interface{} {
+		return new(gomem.MCResponse)
+	}
+}
 
 func main() {
 	cpuprofile := flag.String("cpuprofile", "", "CPU profile output file")
@@ -126,6 +137,7 @@ func execute(in <-chan *gomem.MCRequest, out chan<- *gomem.MCResponse) {
 			}
 		}
 
+		reqP.Put(req)
 		mx.Lock()
 		go func() {
 			out <- res
@@ -142,14 +154,16 @@ func writeback(in <-chan *gomem.MCResponse, out_ io.Writer) {
 	for res := range in {
 		if res.Opaque != 0xffffffff {
 			// binary protocol
+			quiet := res.Opcode.IsQuiet()
 			b := res.Bytes()
+			resP.Put(res)
 
 			mx.Lock()
 			out.Write(b)
 
 			// "The getq command is both mum on cache miss and quiet,
 			// holding its response until a non-quiet command is issued."
-			if res.Opcode.IsQuiet() == false {
+			if !quiet {
 				// This allows us to do Bytes() and Flush() in
 				// parallel
 				go func() {
@@ -166,6 +180,7 @@ func writeback(in <-chan *gomem.MCResponse, out_ io.Writer) {
 		if res.Opcode.IsQuiet() && res.Status == gomem.SUCCESS {
 			// there is absolutely no reason to reply here
 			// a noreply get doesn't exist in the text protocol
+			resP.Put(res)
 			continue
 		}
 
@@ -217,11 +232,18 @@ func parse(in_ io.Reader, out chan<- *gomem.MCRequest) {
 			return
 		}
 
-		req := new(gomem.MCRequest)
+		req := reqP.Get().(*gomem.MCRequest)
+		req.Cas = 0
+		req.Key = nil
+		req.Body = nil
+		req.Extras = nil
+		req.Opcode = 0
+		req.Opaque = 0
 		if b[0] == gomem.REQ_MAGIC {
 			_, err := req.Receive(in, nil)
 			if err != nil {
 				if err == io.EOF {
+					reqP.Put(req)
 					return
 				}
 				// TODO: print error
@@ -232,6 +254,7 @@ func parse(in_ io.Reader, out chan<- *gomem.MCRequest) {
 			cmd, err := in.ReadString('\n')
 			if err != nil {
 				if err == io.EOF {
+					reqP.Put(req)
 					return
 				}
 				// TODO: print error

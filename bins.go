@@ -2,10 +2,19 @@ package cuckoo
 
 import (
 	"bytes"
+	"sync"
 	"sync/atomic"
 	"time"
 	"unsafe"
 )
+
+var binP sync.Pool
+
+func init() {
+	binP.New = func() interface{} {
+		return make([]int, MAX_HASHES)
+	}
+}
 
 // offset64 is the fnv1a 64-bit offset
 var offset64 uint64 = 14695981039346656037
@@ -34,7 +43,8 @@ func (m *cmap) bin(n int, key keyt) int {
 func (m *cmap) kbins(key keyt) []int {
 	nb := uint64(len(m.bins))
 	nh := int(m.hashes)
-	bins := make([]int, nh)
+	bins := binP.Get().([]int)
+	bins = bins[0:nh]
 
 	// only hash the key once
 	s := offset64
