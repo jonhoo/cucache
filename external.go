@@ -72,6 +72,11 @@ func (c Cuckoo) Touch(key []byte, expires time.Time) MemopRes {
 	return c.op(key, ftouch(expires))
 }
 
+// TouchAll updates the expiration time for all entries
+func (c Cuckoo) TouchAll(expires time.Time) {
+	c.touchall(expires)
+}
+
 // op executes a particular Memop on the given key.
 // it will automatically increase the number of hashes when the map starts to
 // become overloaded, but may fail if the map becomes too large.

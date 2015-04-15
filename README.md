@@ -17,7 +17,6 @@ protocol.
 
 ## Known limitations and outstanding things
 
-  - Timed flush does not work
   - Keyspace must be pre-allocated (!!!)
   - Unbounded buffering (quieted gets and #bytes for sets)
   - Multi-gets using text protocol do not work

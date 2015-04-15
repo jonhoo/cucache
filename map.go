@@ -43,6 +43,27 @@ func (m *cmap) iterate() <-chan cval {
 	return ch
 }
 
+// touchall changes the expiry time of all entries to be at the latest the
+// given value. all concurrent modifications are blocked.
+func (m *cmap) touchall(exp time.Time) {
+	for i := range m.bins {
+		m.bins[i].mx.Lock()
+	}
+
+	for i := range m.bins {
+		for vi := 0; vi < ASSOCIATIVITY; vi++ {
+			v := m.bins[i].v(vi)
+			if v != nil && v.present(exp) {
+				v.val.Expires = exp
+			}
+		}
+	}
+
+	for i := range m.bins {
+		m.bins[i].mx.Unlock()
+	}
+}
+
 // del removes the entry with the given key (if any), and returns its value. if
 // casid is non-zero, the element will only be deleted if its id matches.
 func (m *cmap) del(key keyt, casid uint64) (ret MemopRes) {

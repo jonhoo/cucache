@@ -224,9 +224,11 @@ func req2res(req *gomem.MCRequest) (res gomem.MCResponse) {
 	case gomem.QUIT, gomem.QUITQ:
 		return
 	case gomem.FLUSH, gomem.FLUSHQ:
-		// TODO: handle optional "now" argument
-		// TODO: this is probably terrible
-		c = cuckoo.New()
+		at := tm(binary.BigEndian.Uint32(req.Extras[0:4]))
+		if at.IsZero() {
+			at = time.Now()
+		}
+		c.TouchAll(at)
 		res.Status = gomem.SUCCESS
 	case gomem.NOOP:
 		res.Status = gomem.SUCCESS
