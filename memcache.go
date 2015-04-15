@@ -23,7 +23,8 @@ type MemopResType int
 // MemopRes is a container for the result of a map operation.
 type MemopRes struct {
 	T MemopResType
-	V interface{}
+	M *Memval
+	E error
 }
 
 const (
@@ -65,7 +66,7 @@ func fset(bytes []byte, flags uint32, expires time.Time) Memop {
 	return func(old Memval, _ bool) (m Memval, r MemopRes) {
 		m = Memval{bytes, flags, old.Casid + 1, expires}
 		r.T = STORED
-		r.V = old.Casid + 1
+		r.M = &m
 		return
 	}
 }
@@ -77,7 +78,7 @@ func fadd(bytes []byte, flags uint32, expires time.Time) Memop {
 		if !exists {
 			m = Memval{bytes, flags, old.Casid + 1, expires}
 			r.T = STORED
-			r.V = old.Casid + 1
+			r.M = &m
 		}
 		return
 	}
@@ -90,7 +91,7 @@ func freplace(bytes []byte, flags uint32, expires time.Time) Memop {
 		if exists {
 			m = Memval{bytes, flags, old.Casid + 1, expires}
 			r.T = STORED
-			r.V = old.Casid + 1
+			r.M = &m
 		}
 		return
 	}
@@ -114,7 +115,7 @@ func fjoin(bytes []byte, prepend bool, casid uint64) Memop {
 				}
 				m = Memval{nb, old.Flags, old.Casid + 1, old.Expires}
 				r.T = STORED
-				r.V = old.Casid + 1
+				r.M = &m
 			}
 		}
 		return
@@ -143,7 +144,7 @@ func fcas(bytes []byte, flags uint32, expires time.Time, casid uint64) Memop {
 			if old.Casid == casid {
 				m = Memval{bytes, flags, casid + 1, expires}
 				r.T = STORED
-				r.V = casid + 1
+				r.M = &m
 			}
 		}
 		return
@@ -167,7 +168,7 @@ func fpm(by uint64, def uint64, expires time.Time, plus bool) Memop {
 			v, err := strconv.ParseUint(string(old.Bytes), 10, 64)
 			if err != nil {
 				r.T = CLIENT_ERROR
-				r.V = errors.New("non-numeric value found for incr/decr key")
+				r.E = errors.New("non-numeric value found for incr/decr key")
 				return
 			}
 
@@ -182,7 +183,7 @@ func fpm(by uint64, def uint64, expires time.Time, plus bool) Memop {
 			}
 			m = Memval{[]byte(strconv.FormatUint(v, 10)), old.Flags, old.Casid + 1, old.Expires}
 			r.T = STORED
-			r.V = CasVal{old.Casid + 1, v}
+			r.M = &m
 		} else {
 			// If the counter does not exist, one of two things may
 			// happen:
@@ -203,7 +204,7 @@ func fpm(by uint64, def uint64, expires time.Time, plus bool) Memop {
 				m.Flags = 0
 
 				r.T = STORED
-				r.V = CasVal{1, def}
+				r.M = &m
 			}
 		}
 		return

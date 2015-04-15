@@ -86,7 +86,7 @@ func (m *cmap) del(key keyt, casid uint64) (ret MemopRes) {
 			}
 
 			ret.T = STORED
-			ret.V = v
+			ret.M = v
 			m.bins[bin].kill(ki)
 			return
 		}
@@ -141,7 +141,7 @@ func (m *cmap) insert(key keyt, upd Memop) (ret MemopRes) {
 			binP.Put(bins)
 			return MemopRes{
 				T: SERVER_ERROR,
-				V: errors.New("no storage space found for element"),
+				E: errors.New("no storage space found for element"),
 			}
 		}
 
@@ -190,7 +190,7 @@ func (m *cmap) get(key keyt) (ret MemopRes) {
 			s := b.v(i)
 			if s != nil && s.present(now) && bytes.Equal(s.key, key) {
 				ret.T = EXISTS
-				ret.V = &s.val
+				ret.M = &s.val
 				binP.Put(bins)
 				return
 			}

@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+	"strconv"
 	"time"
 
 	gomem "github.com/dustin/gomemcached"
@@ -77,7 +78,7 @@ func req2res(req *gomem.MCRequest) (res *gomem.MCResponse) {
 		switch v.T {
 		case cuckoo.STORED:
 			res.Status = gomem.SUCCESS
-			res.Cas = v.V.(uint64)
+			res.Cas = v.M.Casid
 		case cuckoo.NOT_STORED:
 			res.Status = gomem.NOT_STORED
 		case cuckoo.NOT_FOUND:
@@ -86,7 +87,7 @@ func req2res(req *gomem.MCRequest) (res *gomem.MCResponse) {
 			res.Status = gomem.KEY_EEXISTS
 		case cuckoo.SERVER_ERROR:
 			res.Status = gomem.ENOMEM
-			fmt.Println(v.V.(error))
+			fmt.Println(v.E)
 		default:
 			wtf(req, v)
 		}
@@ -124,10 +125,10 @@ func req2res(req *gomem.MCRequest) (res *gomem.MCResponse) {
 		switch v.T {
 		case cuckoo.STORED:
 			res.Status = gomem.SUCCESS
-			cv := v.V.(cuckoo.CasVal)
-			res.Cas = cv.Casid
+			res.Cas = v.M.Casid
+			newVal, _ := strconv.ParseUint(string(v.M.Bytes), 10, 64)
 			res.Body = make([]byte, 8)
-			binary.BigEndian.PutUint64(res.Body, cv.NewVal)
+			binary.BigEndian.PutUint64(res.Body, newVal)
 		case cuckoo.CLIENT_ERROR:
 			res.Status = gomem.DELTA_BADVAL
 		case cuckoo.NOT_FOUND:

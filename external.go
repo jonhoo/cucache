@@ -111,7 +111,7 @@ func (c Cuckoo) Get(key []byte) (*Memval, bool) {
 	if v.T == NOT_FOUND {
 		return nil, false
 	}
-	return v.V.(*Memval), true
+	return v.M, true
 }
 
 // Iterate returns a list of Memvals present in the map
