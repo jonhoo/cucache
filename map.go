@@ -182,7 +182,6 @@ func (m *cmap) insert(key keyt, upd Memop) (ret MemopRes) {
 func (m *cmap) get(key keyt) (ret MemopRes) {
 	now := time.Now()
 	bins := m.kbins(key)
-	defer binP.Put(bins)
 
 	ret.T = NOT_FOUND
 	for _, bin := range bins {
@@ -192,10 +191,12 @@ func (m *cmap) get(key keyt) (ret MemopRes) {
 			if s != nil && s.present(now) && bytes.Equal(s.key, key) {
 				ret.T = EXISTS
 				ret.V = &s.val
+				binP.Put(bins)
 				return
 			}
 		}
 	}
+	binP.Put(bins)
 	return
 }
 
