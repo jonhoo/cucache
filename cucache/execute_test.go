@@ -2,6 +2,7 @@ package main
 
 import (
 	"cuckood"
+	"encoding/binary"
 	"testing"
 	"time"
 
@@ -285,4 +286,330 @@ func TestDecr(t *testing.T) {
 	assertGet(c, t, "x", []byte("4"))
 	assertPM(c, t, "x", 211, 0, false, gomem.DECREMENT)
 	assertGet(c, t, "x", []byte("0"))
+}
+
+/*
+
+   def testCas(self):
+       """Test CAS operation."""
+       try:
+           self.mc.cas("x", 5, 19, 0x7fffffffff, "bad value")
+           self.fail("Expected error CASing with no existing value")
+       except MemcachedError, e:
+           self.assertEquals(memcacheConstants.ERR_NOT_FOUND, e.status)
+       self.mc.add("x", 5, 19, "original value")
+       flags, i, val=self.mc.get("x")
+       self.assertEquals("original value", val)
+       try:
+           self.mc.cas("x", 5, 19, i+1, "broken value")
+           self.fail("Expected error CASing with invalid id")
+       except MemcachedError, e:
+           self.assertEquals(memcacheConstants.ERR_EXISTS, e.status)
+       self.mc.cas("x", 5, 19, i, "new value")
+       newflags, newi, newval=self.mc.get("x")
+       self.assertEquals("new value", newval)
+
+       # Test a CAS replay
+       try:
+           self.mc.cas("x", 5, 19, i, "crap value")
+           self.fail("Expected error CASing with invalid id")
+       except MemcachedError, e:
+           self.assertEquals(memcacheConstants.ERR_EXISTS, e.status)
+       newflags, newi, newval=self.mc.get("x")
+       self.assertEquals("new value", newval)
+*/
+func TestCas(t *testing.T) {
+	c := cuckoo.New()
+	req := &gomem.MCRequest{
+		Opcode: gomem.SET,
+		Key:    []byte("x"),
+		Body:   []byte("bad value"),
+		Extras: nullset,
+		Cas:    0x7fffffffff,
+	}
+
+	res := req2res(c, req)
+	if res.Status != gomem.KEY_ENOENT {
+		t.Errorf("expected cas on non-existent key to fail with ERR_NOT_FOUND, got %v", res.Status)
+	}
+
+	assertSet(c, t, "x", []byte("original value"), gomem.ADD)
+	res = assertGet(c, t, "x", []byte("original value"))
+
+	req.Cas = res.Cas + 1
+	req.Body = []byte("broken value")
+	res = req2res(c, req)
+	if res.Status != gomem.KEY_EEXISTS {
+		t.Errorf("expected set with invalid cas to fail with EEXISTS, got %v", res.Status)
+	}
+
+	req.Cas = req.Cas - 1
+	req.Body = []byte("new value")
+	res = req2res(c, req)
+	if res.Status != gomem.SUCCESS {
+		t.Errorf("expected set with valid cas to succeed, got %v", res.Status)
+	}
+
+	res = assertGet(c, t, "x", []byte("new value"))
+	req.Body = []byte("crap value")
+	res = req2res(c, req)
+	if res.Status != gomem.KEY_EEXISTS {
+		t.Errorf("expected replayed cas to fail with EEXISTS, got %v", res.Status)
+	}
+
+	assertGet(c, t, "x", []byte("new value"))
+}
+
+/*
+   # Assert we know the correct CAS for a given key.
+   def assertValidCas(self, key, cas):
+       flags, currentcas, val=self.mc.get(key)
+       self.assertEquals(currentcas, cas)
+
+   def testSetReturnsCas(self):
+       """Ensure a set command returns the current CAS."""
+       vals=self.mc.set('x', 5, 19, 'some val')
+       self.assertValidCas('x', vals[1])
+*/
+func TestSetReturnsCas(t *testing.T) {
+	c := cuckoo.New()
+	res_set := assertSet(c, t, "x", []byte("some val"), gomem.SET)
+	res_get := assertGet(c, t, "x", []byte("some val"))
+	if res_set.Cas != res_get.Cas {
+		t.Errorf("expected CAS from SET to match CAS from GET (s: %d, g: %d)", res_set.Cas, res_get.Cas)
+	}
+}
+
+/*
+   def testAddReturnsCas(self):
+       """Ensure an add command returns the current CAS."""
+       vals=self.mc.add('x', 5, 19, 'some val')
+       self.assertValidCas('x', vals[1])
+*/
+func TestAddReturnsCas(t *testing.T) {
+	c := cuckoo.New()
+	res_set := assertSet(c, t, "x", []byte("some val"), gomem.ADD)
+	res_get := assertGet(c, t, "x", []byte("some val"))
+	if res_set.Cas != res_get.Cas {
+		t.Errorf("expected CAS from ADD to match CAS from GET (a: %d, g: %d)", res_set.Cas, res_get.Cas)
+	}
+}
+
+/*
+   def testReplaceReturnsCas(self):
+       """Ensure a replace command returns the current CAS."""
+       vals=self.mc.add('x', 5, 19, 'some val')
+       vals=self.mc.replace('x', 5, 19, 'other val')
+       self.assertValidCas('x', vals[1])
+*/
+func TestReplaceReturnsCas(t *testing.T) {
+	c := cuckoo.New()
+	assertSet(c, t, "x", []byte("some val"), gomem.ADD)
+	res_set := assertSet(c, t, "x", []byte("other val"), gomem.REPLACE)
+	res_get := assertGet(c, t, "x", []byte("other val"))
+	if res_set.Cas != res_get.Cas {
+		t.Errorf("expected CAS from REPLACE to match CAS from GET (r: %d, g: %d)", res_set.Cas, res_get.Cas)
+	}
+}
+
+/*
+   def testIncrReturnsCAS(self):
+       """Ensure an incr command returns the current CAS."""
+       val, cas, something=self.mc.set("x", 5, 19, '4')
+       val, cas=self.mc.incr("x", init=5)
+       self.assertEquals(5, val)
+       self.assertValidCas('x', cas)
+*/
+func TestIncrReturnsCas(t *testing.T) {
+	c := cuckoo.New()
+	assertSet(c, t, "x", []byte("4"), gomem.ADD)
+	res_set := assertPM(c, t, "x", 1, 5, true, gomem.INCREMENT)
+	res_get := assertGet(c, t, "x", []byte("5"))
+	if res_set.Cas != res_get.Cas {
+		t.Errorf("expected CAS from INCR to match CAS from GET (i: %d, g: %d)", res_set.Cas, res_get.Cas)
+	}
+}
+
+/*
+
+   def testDecrReturnsCAS(self):
+       """Ensure an decr command returns the current CAS."""
+       val, cas, something=self.mc.set("x", 5, 19, '4')
+       val, cas=self.mc.decr("x", init=5)
+       self.assertEquals(3, val)
+       self.assertValidCas('x', cas)
+*/
+func TestDecrReturnsCas(t *testing.T) {
+	c := cuckoo.New()
+	assertSet(c, t, "x", []byte("4"), gomem.ADD)
+	res_set := assertPM(c, t, "x", 1, 5, true, gomem.DECREMENT)
+	res_get := assertGet(c, t, "x", []byte("3"))
+	if res_set.Cas != res_get.Cas {
+		t.Errorf("expected CAS from DECR to match CAS from GET (d: %d, g: %d)", res_set.Cas, res_get.Cas)
+	}
+}
+
+/*
+   def testDeletionCAS(self):
+       """Validation deletion honors cas."""
+       try:
+           self.mc.delete("x")
+       except MemcachedError, e:
+           self.assertEquals(memcacheConstants.ERR_NOT_FOUND, e.status)
+       val, cas, something=self.mc.set("x", 5, 19, '4')
+       try:
+           self.mc.delete('x', cas=cas+1)
+           self.fail("Deletion should've failed.")
+       except MemcachedError, e:
+           self.assertEquals(memcacheConstants.ERR_EXISTS, e.status)
+       self.assertGet((19, '4'), self.mc.get('x'))
+       self.mc.delete('x', cas=cas)
+       self.assertNotExists('x')
+*/
+func TestDeletionCAS(t *testing.T) {
+	c := cuckoo.New()
+	req := &gomem.MCRequest{
+		Opcode: gomem.DELETE,
+		Key:    []byte("x"),
+	}
+
+	res := req2res(c, req)
+	if res.Status != gomem.KEY_ENOENT {
+		t.Errorf("expected delete of non-existing key to fail with ENOENT, got %v", res.Status)
+	}
+
+	res = assertSet(c, t, "x", []byte("4"), gomem.ADD)
+	req.Cas = res.Cas + 1
+	res = req2res(c, req)
+	if res.Status != gomem.KEY_EEXISTS {
+		t.Errorf("expected delete with invalid cas to fail with EEXISTS, got %v", res.Status)
+	}
+
+	assertGet(c, t, "x", []byte("4"))
+	req.Cas = req.Cas - 1
+	res = req2res(c, req)
+	if res.Status != gomem.SUCCESS {
+		t.Errorf("expected delete with valid cas to succeed, got %v", res.Status)
+	}
+
+	assertNotExists(c, t, "x")
+}
+
+/*
+   def testAppend(self):
+       """Test append functionality."""
+       val, cas, something=self.mc.set("x", 5, 19, "some")
+       val, cas, something=self.mc.append("x", "thing")
+       self.assertGet((19, 'something'), self.mc.get("x"))
+*/
+func TestAppend(t *testing.T) {
+	c := cuckoo.New()
+
+	assertSet(c, t, "x", []byte("some"), gomem.SET)
+	do(c, t, &gomem.MCRequest{
+		Opcode: gomem.APPEND,
+		Key:    []byte("x"),
+		Body:   []byte("thing"),
+	})
+	assertGet(c, t, "x", []byte("something"))
+}
+
+/*
+   def testAppendCAS(self):
+       """Test append functionality honors CAS."""
+       val, cas, something=self.mc.set("x", 5, 19, "some")
+       try:
+           val, cas, something=self.mc.append("x", "thing", cas+1)
+           self.fail("expected CAS failure.")
+       except MemcachedError, e:
+           self.assertEquals(memcacheConstants.ERR_EXISTS, e.status)
+       self.assertGet((19, 'some'), self.mc.get("x"))
+*/
+func TestAppendCAS(t *testing.T) {
+	c := cuckoo.New()
+	req := &gomem.MCRequest{
+		Opcode: gomem.APPEND,
+		Key:    []byte("x"),
+		Body:   []byte("thing"),
+	}
+
+	res := assertSet(c, t, "x", []byte("some"), gomem.ADD)
+	req.Cas = res.Cas + 1
+	res = req2res(c, req)
+	if res.Status != gomem.KEY_EEXISTS {
+		t.Errorf("expected append with invalid cas to fail with EEXISTS, got %v", res.Status)
+	}
+	assertGet(c, t, "x", []byte("some"))
+}
+
+/*
+   def testPrepend(self):
+       """Test prepend functionality."""
+       val, cas, something=self.mc.set("x", 5, 19, "some")
+       val, cas, something=self.mc.prepend("x", "thing")
+       self.assertGet((19, 'thingsome'), self.mc.get("x"))
+*/
+func TestPrepend(t *testing.T) {
+	c := cuckoo.New()
+
+	assertSet(c, t, "x", []byte("some"), gomem.SET)
+	do(c, t, &gomem.MCRequest{
+		Opcode: gomem.PREPEND,
+		Key:    []byte("x"),
+		Body:   []byte("thing"),
+	})
+	assertGet(c, t, "x", []byte("thingsome"))
+}
+
+/*
+   def testPrependCAS(self):
+       """Test prepend functionality honors CAS."""
+       val, cas, something=self.mc.set("x", 5, 19, "some")
+       try:
+           val, cas, something=self.mc.prepend("x", "thing", cas+1)
+           self.fail("expected CAS failure.")
+       except MemcachedError, e:
+           self.assertEquals(memcacheConstants.ERR_EXISTS, e.status)
+       self.assertGet((19, 'some'), self.mc.get("x"))
+*/
+func TestPrependCAS(t *testing.T) {
+	c := cuckoo.New()
+	req := &gomem.MCRequest{
+		Opcode: gomem.PREPEND,
+		Key:    []byte("x"),
+		Body:   []byte("thing"),
+	}
+
+	res := assertSet(c, t, "x", []byte("some"), gomem.ADD)
+	req.Cas = res.Cas + 1
+	res = req2res(c, req)
+	if res.Status != gomem.KEY_EEXISTS {
+		t.Errorf("expected prepend with invalid cas to fail with EEXISTS, got %v", res.Status)
+	}
+	assertGet(c, t, "x", []byte("some"))
+}
+
+/*
+   def testTimeBombedFlush(self):
+       """Test a flush with a time bomb."""
+       val, cas, something=self.mc.set("x", 5, 19, "some")
+       self.mc.flush(2)
+       self.assertGet((19, 'some'), self.mc.get("x"))
+       time.sleep(2.1)
+       self.assertNotExists('x')
+*/
+func TestTimeBombedFlush(t *testing.T) {
+	c := cuckoo.New()
+	assertSet(c, t, "x", []byte("some"), gomem.ADD)
+
+	exp := make([]byte, 4)
+	binary.BigEndian.PutUint32(exp, 2)
+	do(c, t, &gomem.MCRequest{
+		Opcode: gomem.FLUSH,
+		Extras: exp,
+	})
+
+	assertGet(c, t, "x", []byte("some"))
+	time.Sleep(2*time.Second + 100*time.Millisecond)
+	assertNotExists(c, t, "x")
 }

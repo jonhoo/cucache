@@ -52,16 +52,14 @@ func pm(c cuckoo.Cuckoo, key string, by uint64, def uint64, nocreate bool, as go
 	})
 }
 
-func assertGet(c cuckoo.Cuckoo, t *testing.T, key string, val []byte) {
+func assertGet(c cuckoo.Cuckoo, t *testing.T, key string, val []byte) *gomem.MCResponse {
 	res := get(c, key)
 	if res.Status != gomem.SUCCESS {
 		t.Errorf("expected get success on key %s, got %v", key, res.Status)
-		return
-	}
-	if !bytes.Equal(res.Body, val) {
+	} else if !bytes.Equal(res.Body, val) {
 		t.Errorf("expected get to return '%v' for key %s, got '%v'", string(val), key, string(res.Body))
-		return
 	}
+	return res
 }
 
 func assertNotExists(c cuckoo.Cuckoo, t *testing.T, key string) {
