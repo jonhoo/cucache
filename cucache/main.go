@@ -20,7 +20,6 @@ import (
 	gomem "github.com/dustin/gomemcached"
 )
 
-var c cuckoo.Cuckoo
 var reqP sync.Pool
 var resP sync.Pool
 
@@ -37,7 +36,7 @@ func main() {
 	cpuprofile := flag.String("cpuprofile", "", "CPU profile output file")
 	flag.Parse()
 
-	c = cuckoo.New()
+	c := cuckoo.New()
 
 	var pf *os.File
 	sigs := make(chan os.Signal, 1)
@@ -86,7 +85,7 @@ func main() {
 				fmt.Println(err)
 				continue
 			}
-			go handleConnection(conn)
+			go handleConnection(c, conn)
 		}
 	}()
 	wg.Add(1)
@@ -103,7 +102,7 @@ func main() {
 				fmt.Println(err)
 				continue
 			}
-			go replyTo(b, addr.(*net.UDPAddr))
+			go replyTo(c, b, addr.(*net.UDPAddr))
 		}
 	}()
 	wg.Wait()
@@ -113,11 +112,11 @@ func wtf(req *gomem.MCRequest, v cuckoo.MemopRes) {
 	panic(fmt.Sprintf("unexpected result when handling %v: %v\n", req.Opcode, v))
 }
 
-func execute(in <-chan *gomem.MCRequest, out chan<- *gomem.MCResponse) {
+func execute(c cuckoo.Cuckoo, in <-chan *gomem.MCRequest, out chan<- *gomem.MCResponse) {
 	mx := new(sync.Mutex)
 
 	for req := range in {
-		res := req2res(req)
+		res := req2res(c, req)
 		if req.Opcode.IsQuiet() && res.Status == gomem.SUCCESS {
 			if req.Opcode == gomem.GETQ || req.Opcode == gomem.GETKQ {
 				// simply don't flush
@@ -270,15 +269,15 @@ func parse(in_ io.Reader, out chan<- *gomem.MCRequest) {
 	close(out)
 }
 
-func setup(in io.Reader, out io.Writer) {
+func setup(c cuckoo.Cuckoo, in io.Reader, out io.Writer) {
 	dispatch := make(chan *gomem.MCRequest, 50)
 	bridge := make(chan *gomem.MCResponse, 50)
-	go execute(dispatch, bridge)
+	go execute(c, dispatch, bridge)
 	go writeback(bridge, out)
 	parse(in, dispatch)
 }
 
-func replyTo(in []byte, to *net.UDPAddr) {
+func replyTo(c cuckoo.Cuckoo, in []byte, to *net.UDPAddr) {
 	u, err := net.ListenPacket("udp", "127.0.0.1:0")
 	if err != nil {
 		fmt.Println(err)
@@ -287,14 +286,14 @@ func replyTo(in []byte, to *net.UDPAddr) {
 	defer u.Close()
 
 	var o bytes.Buffer
-	setup(bytes.NewBuffer(in), &o)
+	setup(c, bytes.NewBuffer(in), &o)
 	_, err = u.WriteTo(o.Bytes(), to)
 	if err != nil {
 		fmt.Println(err)
 	}
 }
 
-func handleConnection(c net.Conn) {
-	setup(c, c)
-	c.Close()
+func handleConnection(c cuckoo.Cuckoo, conn net.Conn) {
+	setup(c, conn, conn)
+	conn.Close()
 }

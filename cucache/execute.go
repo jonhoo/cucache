@@ -35,7 +35,7 @@ func tm(i uint32) (t time.Time) {
 	return
 }
 
-func req2res(req *gomem.MCRequest) (res *gomem.MCResponse) {
+func req2res(c cuckoo.Cuckoo, req *gomem.MCRequest) (res *gomem.MCResponse) {
 	res = resP.Get().(*gomem.MCResponse)
 	res.Cas = 0
 	res.Key = nil
@@ -65,6 +65,11 @@ func req2res(req *gomem.MCRequest) (res *gomem.MCResponse) {
 	case gomem.SET, gomem.SETQ,
 		gomem.ADD, gomem.ADDQ,
 		gomem.REPLACE, gomem.REPLACEQ:
+
+		if len(req.Extras) != 8 {
+			res.Status = gomem.EINVAL
+			break
+		}
 
 		flags := binary.BigEndian.Uint32(req.Extras[0:4])
 		expiry := tm(binary.BigEndian.Uint32(req.Extras[4:8]))
@@ -118,6 +123,11 @@ func req2res(req *gomem.MCRequest) (res *gomem.MCResponse) {
 	case gomem.INCREMENT, gomem.INCREMENTQ,
 		gomem.DECREMENT, gomem.DECREMENTQ:
 
+		if len(req.Extras) != 20 {
+			res.Status = gomem.EINVAL
+			break
+		}
+
 		by := binary.BigEndian.Uint64(req.Extras[0:8])
 		def := binary.BigEndian.Uint64(req.Extras[8:16])
 		exp := tm(binary.BigEndian.Uint32(req.Extras[16:20]))
@@ -150,6 +160,11 @@ func req2res(req *gomem.MCRequest) (res *gomem.MCResponse) {
 	case gomem.QUIT, gomem.QUITQ:
 		return
 	case gomem.FLUSH, gomem.FLUSHQ:
+		if len(req.Extras) != 4 {
+			res.Status = gomem.EINVAL
+			break
+		}
+
 		at := tm(binary.BigEndian.Uint32(req.Extras[0:4]))
 		if at.IsZero() {
 			at = time.Now()
@@ -160,7 +175,8 @@ func req2res(req *gomem.MCRequest) (res *gomem.MCResponse) {
 		res.Status = gomem.SUCCESS
 	case gomem.VERSION:
 		res.Status = gomem.SUCCESS
-		// TODO: res.Body =
+		// TODO
+		res.Body = []byte("0.0.1")
 	case gomem.APPEND, gomem.APPENDQ,
 		gomem.PREPEND, gomem.PREPENDQ:
 
