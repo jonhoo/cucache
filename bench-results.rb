@@ -29,7 +29,9 @@ ARGV.each do |dir|
 						end
 					end
 				end
-				versions[version].push result
+				if result.include? "gets"
+					versions[version].push result
+				end
 			end
 		end
 	end
@@ -47,12 +49,23 @@ versions.each_pair do |k, v|
 		accum["get"]["hit"].push r["gets"]["hit"]
 		accum["get"]["miss"].push r["gets"]["miss"]
 	end
-	versions[k] = accum
+
+	if accum["set"].length == 0
+		versions.delete k
+	else
+		versions[k] = accum
+	end
 end
 
 def median(array)
+	len = array.length
+	if len == 0
+		return 0
+	end
+	if len == 1
+		return array[0]
+	end
 	sorted = array.sort
-	len = sorted.length
 	return (sorted[(len - 1) / 2] + sorted[len / 2]) / 2.0
 end
 versions.each_pair do |k, v|
