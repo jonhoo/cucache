@@ -8,7 +8,7 @@
 	"versions": {
 		"cucache-1": {
 			"arguments": [
-				"$SRC/bench.sh",
+				"$SRC/benchmark/bench.sh",
 				"1",
 				"24",
 				"$SRC/bin/cucache"
@@ -16,7 +16,7 @@
 		},
 		"cucache-2": {
 			"arguments": [
-				"$SRC/bench.sh",
+				"$SRC/benchmark/bench.sh",
 				"2",
 				"24",
 				"$SRC/bin/cucache"
@@ -24,7 +24,7 @@
 		},
 		"cucache-4": {
 			"arguments": [
-				"$SRC/bench.sh",
+				"$SRC/benchmark/bench.sh",
 				"4",
 				"24",
 				"$SRC/bin/cucache"
@@ -32,7 +32,7 @@
 		},
 		"cucache-8": {
 			"arguments": [
-				"$SRC/bench.sh",
+				"$SRC/benchmark/bench.sh",
 				"8",
 				"24",
 				"$SRC/bin/cucache"
@@ -40,7 +40,7 @@
 		},
 		"cucache-12": {
 			"arguments": [
-				"$SRC/bench.sh",
+				"$SRC/benchmark/bench.sh",
 				"12",
 				"24",
 				"$SRC/bin/cucache"
@@ -48,7 +48,7 @@
 		},
 		"cucache-16": {
 			"arguments": [
-				"$SRC/bench.sh",
+				"$SRC/benchmark/bench.sh",
 				"16",
 				"24",
 				"$SRC/bin/cucache"
@@ -56,7 +56,7 @@
 		},
 		"memcached-1": {
 			"arguments": [
-				"$SRC/bench.sh",
+				"$SRC/benchmark/bench.sh",
 				"1",
 				"24",
 				"memcached",
@@ -66,7 +66,7 @@
 		},
 		"memcached-2": {
 			"arguments": [
-				"$SRC/bench.sh",
+				"$SRC/benchmark/bench.sh",
 				"2",
 				"24",
 				"memcached",
@@ -76,7 +76,7 @@
 		},
 		"memcached-4": {
 			"arguments": [
-				"$SRC/bench.sh",
+				"$SRC/benchmark/bench.sh",
 				"4",
 				"24",
 				"memcached",
@@ -86,7 +86,7 @@
 		},
 		"memcached-8": {
 			"arguments": [
-				"$SRC/bench.sh",
+				"$SRC/benchmark/bench.sh",
 				"8",
 				"24",
 				"memcached",
@@ -96,7 +96,7 @@
 		},
 		"memcached-12": {
 			"arguments": [
-				"$SRC/bench.sh",
+				"$SRC/benchmark/bench.sh",
 				"12",
 				"24",
 				"memcached",
@@ -106,7 +106,7 @@
 		},
 		"memcached-16": {
 			"arguments": [
-				"$SRC/bench.sh",
+				"$SRC/benchmark/bench.sh",
 				"16",
 				"24",
 				"memcached",
