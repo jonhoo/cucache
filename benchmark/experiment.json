@@ -3,7 +3,7 @@
 	"checkout": "master",
 	"experiment": "Vary cores",
 	"keep-stdout": true,
-	"iterations": 3,
+	"iterations": 5,
 	"parallelism": 1,
 	"versions": {
 		"cucache-1": {
@@ -38,6 +38,14 @@
 				"$SRC/bin/cucache"
 			]
 		},
+		"cucache-10": {
+			"arguments": [
+				"$SRC/benchmark/bench.sh",
+				"10",
+				"24",
+				"$SRC/bin/cucache"
+			]
+		},
 		"cucache-12": {
 			"arguments": [
 				"$SRC/benchmark/bench.sh",
@@ -50,6 +58,22 @@
 			"arguments": [
 				"$SRC/benchmark/bench.sh",
 				"16",
+				"24",
+				"$SRC/bin/cucache"
+			]
+		},
+		"cucache-18": {
+			"arguments": [
+				"$SRC/benchmark/bench.sh",
+				"18",
+				"24",
+				"$SRC/bin/cucache"
+			]
+		},
+		"cucache-20": {
+			"arguments": [
+				"$SRC/benchmark/bench.sh",
+				"20",
 				"24",
 				"$SRC/bin/cucache"
 			]
@@ -71,7 +95,7 @@
 				"24",
 				"memcached",
 				"-t",
-				"2"
+				"CCORES"
 			]
 		},
 		"memcached-4": {
@@ -81,7 +105,7 @@
 				"24",
 				"memcached",
 				"-t",
-				"4"
+				"CCORES"
 			]
 		},
 		"memcached-8": {
@@ -91,7 +115,17 @@
 				"24",
 				"memcached",
 				"-t",
-				"8"
+				"CCORES"
+			]
+		},
+		"memcached-10": {
+			"arguments": [
+				"$SRC/benchmark/bench.sh",
+				"10",
+				"24",
+				"memcached",
+				"-t",
+				"CCORES"
 			]
 		},
 		"memcached-12": {
@@ -101,7 +135,7 @@
 				"24",
 				"memcached",
 				"-t",
-				"12"
+				"CCORES"
 			]
 		},
 		"memcached-16": {
@@ -111,7 +145,27 @@
 				"24",
 				"memcached",
 				"-t",
-				"16"
+				"CCORES"
+			]
+		},
+		"memcached-18": {
+			"arguments": [
+				"$SRC/benchmark/bench.sh",
+				"18",
+				"24",
+				"memcached",
+				"-t",
+				"CCORES"
+			]
+		},
+		"memcached-20": {
+			"arguments": [
+				"$SRC/benchmark/bench.sh",
+				"20",
+				"24",
+				"memcached",
+				"-t",
+				"CCORES"
 			]
 		}
 	}

@@ -16,6 +16,19 @@ fi
 command -v numactl >/dev/null 2>&1
 no_numa=$?
 
+args=()
+for i in "$@"; do
+	if [ "$i" == "CCORES" ]; then
+		args+=("$ccores")
+	elif [ "$i" == "SCORES" ]; then
+		args+=("$scores")
+	else
+		args+=("$i")
+	fi
+done
+echo "${args[@]}"
+exit
+
 if [ $no_numa -eq 1 ]; then
 	echo env GOMAXPROCS=$scores "$@" -p 2222 -U 2222
 	env GOMAXPROCS=$scores "$@" -p 2222 -U 2222 &
