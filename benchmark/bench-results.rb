@@ -1,5 +1,27 @@
 #!/usr/bin/env ruby
 
+aggregators = {
+	"median" => lambda do |array|
+		len = array.length
+		if len == 0
+			return 0
+		end
+		if len == 1
+			return array[0]
+		end
+		sorted = array.sort
+		return (sorted[(len - 1) / 2] + sorted[len / 2]) / 2.0
+	end,
+	"max" => lambda { |array| array.max },
+	"mean" => lambda { |array| array.inject{ |sum, el| sum + el }.to_f / array.size }
+}
+
+$aggregator = aggregators["median"]
+if ARGV.length > 0 and aggregators.include? ARGV[0]
+	$aggregator = aggregators[ARGV.shift]
+end
+puts $aggregator
+
 versions = {}
 ARGV.each do |dir|
 	Dir.glob(File.join(dir, "*")) do |v|
@@ -57,23 +79,12 @@ versions.each_pair do |k, v|
 	end
 end
 
-def median(array)
-	len = array.length
-	if len == 0
-		return 0
-	end
-	if len == 1
-		return array[0]
-	end
-	sorted = array.sort
-	return (sorted[(len - 1) / 2] + sorted[len / 2]) / 2.0
-end
 versions.each_pair do |k, v|
 	agg = {
-		"set" => median(v["set"]),
+		"set" => $aggregator.call(v["set"]),
 		"get" => {
-			"hit" => median(v["get"]["hit"]),
-			"miss" => median(v["get"]["miss"]),
+			"hit" => $aggregator.call(v["get"]["hit"]),
+			"miss" => $aggregator.call(v["get"]["miss"]),
 		},
 	}
 	versions[k] = agg
