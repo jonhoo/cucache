@@ -38,6 +38,14 @@
 				"$SRC/bin/cucache"
 			]
 		},
+		"cucache-12": {
+			"arguments": [
+				"$SRC/bench.sh",
+				"12",
+				"24",
+				"$SRC/bin/cucache"
+			]
+		},
 		"cucache-16": {
 			"arguments": [
 				"$SRC/bench.sh",
@@ -84,6 +92,16 @@
 				"memcached",
 				"-t",
 				"8"
+			]
+		},
+		"memcached-12": {
+			"arguments": [
+				"$SRC/bench.sh",
+				"12",
+				"24",
+				"memcached",
+				"-t",
+				"12"
 			]
 		},
 		"memcached-16": {
