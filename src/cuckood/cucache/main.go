@@ -34,6 +34,8 @@ func init() {
 
 func main() {
 	cpuprofile := flag.String("cpuprofile", "", "CPU profile output file")
+	port := flag.Int("p", 11211, "TCP port to listen on")
+	udpport := flag.Int("U", 11211, "UDP port to listen on")
 	flag.Parse()
 
 	c := cuckoo.New()
@@ -75,7 +77,7 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		ln, err := net.Listen("tcp", ":11211")
+		ln, err := net.Listen("tcp", ":"+strconv.Itoa(*port))
 		if err != nil {
 			panic(err)
 		}
@@ -91,7 +93,7 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		ln, err := net.ListenPacket("udp", ":11211")
+		ln, err := net.ListenPacket("udp", ":"+strconv.Itoa(*udpport))
 		if err != nil {
 			panic(err)
 		}
