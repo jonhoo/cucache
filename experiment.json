@@ -1,0 +1,100 @@
+{
+	"build": "env GOPATH=$(pwd) $GO get cuckood/...",
+	"checkout": "master",
+	"experiment": "Vary cores",
+	"keep-stdout": true,
+	"iterations": 3,
+	"parallelism": 1,
+	"versions": {
+		"cucache-1": {
+			"arguments": [
+				"$SRC/bench.sh",
+				"1",
+				"24",
+				"$SRC/bin/cucache"
+			]
+		},
+		"cucache-2": {
+			"arguments": [
+				"$SRC/bench.sh",
+				"2",
+				"24",
+				"$SRC/bin/cucache"
+			]
+		},
+		"cucache-4": {
+			"arguments": [
+				"$SRC/bench.sh",
+				"4",
+				"24",
+				"$SRC/bin/cucache"
+			]
+		},
+		"cucache-8": {
+			"arguments": [
+				"$SRC/bench.sh",
+				"8",
+				"24",
+				"$SRC/bin/cucache"
+			]
+		},
+		"cucache-16": {
+			"arguments": [
+				"$SRC/bench.sh",
+				"16",
+				"24",
+				"$SRC/bin/cucache"
+			]
+		},
+		"memcached-1": {
+			"arguments": [
+				"$SRC/bench.sh",
+				"1",
+				"24",
+				"memcached",
+				"-t",
+				"1"
+			]
+		},
+		"memcached-2": {
+			"arguments": [
+				"$SRC/bench.sh",
+				"2",
+				"24",
+				"memcached",
+				"-t",
+				"2"
+			]
+		},
+		"memcached-4": {
+			"arguments": [
+				"$SRC/bench.sh",
+				"4",
+				"24",
+				"memcached",
+				"-t",
+				"4"
+			]
+		},
+		"memcached-8": {
+			"arguments": [
+				"$SRC/bench.sh",
+				"8",
+				"24",
+				"memcached",
+				"-t",
+				"8"
+			]
+		},
+		"memcached-16": {
+			"arguments": [
+				"$SRC/bench.sh",
+				"16",
+				"24",
+				"memcached",
+				"-t",
+				"16"
+			]
+		}
+	}
+}
