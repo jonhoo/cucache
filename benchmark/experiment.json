@@ -95,7 +95,7 @@
 				"28",
 				"memcached",
 				"-t",
-				"CCORES"
+				"SCORES"
 			]
 		},
 		"memcached-4": {
@@ -105,7 +105,7 @@
 				"28",
 				"memcached",
 				"-t",
-				"CCORES"
+				"SCORES"
 			]
 		},
 		"memcached-8": {
@@ -115,7 +115,7 @@
 				"28",
 				"memcached",
 				"-t",
-				"CCORES"
+				"SCORES"
 			]
 		},
 		"memcached-10": {
@@ -125,7 +125,7 @@
 				"28",
 				"memcached",
 				"-t",
-				"CCORES"
+				"SCORES"
 			]
 		},
 		"memcached-12": {
@@ -135,7 +135,7 @@
 				"28",
 				"memcached",
 				"-t",
-				"CCORES"
+				"SCORES"
 			]
 		},
 		"memcached-16": {
@@ -145,7 +145,7 @@
 				"28",
 				"memcached",
 				"-t",
-				"CCORES"
+				"SCORES"
 			]
 		},
 		"memcached-18": {
@@ -155,7 +155,7 @@
 				"28",
 				"memcached",
 				"-t",
-				"CCORES"
+				"SCORES"
 			]
 		},
 		"memcached-20": {
@@ -165,7 +165,7 @@
 				"28",
 				"memcached",
 				"-t",
-				"CCORES"
+				"SCORES"
 			]
 		}
 	}
