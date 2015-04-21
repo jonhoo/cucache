@@ -26,16 +26,14 @@ for i in "$@"; do
 		args+=("$i")
 	fi
 done
-echo "${args[@]}"
-exit
 
 if [ $no_numa -eq 1 ]; then
-	echo env GOMAXPROCS=$scores "$@" -p 2222 -U 2222
-	env GOMAXPROCS=$scores "$@" -p 2222 -U 2222 &
+	echo env GOMAXPROCS=$scores "${args[@]}" -p 2222 -U 2222
+	env GOMAXPROCS=$scores "${args[@]}" -p 2222 -U 2222 &
 	pid=$!
 else
-	echo numactl -C 0-$ends env GOMAXPROCS=$scores "$@" -p 2222 -U 2222
-	numactl -C 0-$ends env GOMAXPROCS=$scores "$@" -p 2222 -U 2222 &
+	echo numactl -C 0-$ends env GOMAXPROCS=$scores "${args[@]}" -p 2222 -U 2222
+	numactl -C 0-$ends env GOMAXPROCS=$scores "${args[@]}" -p 2222 -U 2222 &
 	pid=$!
 fi
 
