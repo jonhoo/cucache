@@ -17,12 +17,12 @@ command -v numactl >/dev/null 2>&1
 no_numa=$?
 
 if [ $no_numa -eq 1 ]; then
-	echo env GOMAXPROCS=$scores "$@" -p 2222
-	env GOMAXPROCS=$scores "$@" -p 2222 &
+	echo env GOMAXPROCS=$scores "$@" -p 2222 -U 2222
+	env GOMAXPROCS=$scores "$@" -p 2222 -U 2222 &
 	pid=$!
 else
-	echo numactl -C 0-$ends env GOMAXPROCS=$scores "$@" -p 2222
-	numactl -C 0-$ends env GOMAXPROCS=$scores "$@" -p 2222 &
+	echo numactl -C 0-$ends env GOMAXPROCS=$scores "$@" -p 2222 -U 2222
+	numactl -C 0-$ends env GOMAXPROCS=$scores "$@" -p 2222 -U 2222 &
 	pid=$!
 fi
 
