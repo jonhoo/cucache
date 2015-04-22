@@ -1,4 +1,5 @@
 #!/usr/bin/gnuplot -p
+set key top left
 set xlabel "CPU Cores"
 set ylabel "misses|sets/s"
 set y2label "hits/s"
