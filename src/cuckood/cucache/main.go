@@ -44,7 +44,7 @@ func main() {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, os.Interrupt, syscall.SIGTERM, syscall.SIGABRT)
 	go func() {
-		for s := range sigs {
+		for range sigs {
 			if pf != nil {
 				pprof.StopCPUProfile()
 				err := pf.Close()
@@ -52,9 +52,7 @@ func main() {
 					fmt.Println("could not end cpu profile:", err)
 				}
 			}
-			if s == os.Interrupt {
-				os.Exit(0)
-			}
+			os.Exit(0)
 		}
 	}()
 
