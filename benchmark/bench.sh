@@ -46,3 +46,4 @@ else
 fi
 
 kill $pid
+wait $pid
