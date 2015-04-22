@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 ncores=$(lscpu | grep "^CPU(s):" | sed 's/.* //')
 scores="$1"; shift
 ccores="$1"; shift
