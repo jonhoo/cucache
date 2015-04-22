@@ -46,4 +46,4 @@ else
 fi
 
 kill $pid
-wait $pid
+wait $pid 2>/dev/null
