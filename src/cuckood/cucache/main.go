@@ -42,7 +42,7 @@ func main() {
 
 	var pf *os.File
 	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, os.Interrupt, syscall.SIGABRT)
+	signal.Notify(sigs, os.Interrupt, syscall.SIGTERM, syscall.SIGABRT)
 	go func() {
 		for s := range sigs {
 			if pf != nil {
