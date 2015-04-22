@@ -38,10 +38,10 @@ else
 fi
 
 if [ $no_numa -eq 1 ]; then
-	echo memtier_benchmark -p 2222 -P memcache_binary -n 2000 -t $ccores -c $nc
+	echo memtier_benchmark -p 2222 -P memcache_binary -n 20000 -t $ccores -c $nc
 	memtier_benchmark -p 2222 -P memcache_binary -n 20000 -t $ccores -c $nc 2>/dev/null
 else
-	echo numactl -C $startc-$endc memtier_benchmark -p 2222 -P memcache_binary -n 2000 -t $ccores -c $nc
+	echo numactl -C $startc-$endc memtier_benchmark -p 2222 -P memcache_binary -n 20000 -t $ccores -c $nc
 	numactl -C $startc-$endc memtier_benchmark -p 2222 -P memcache_binary -n 20000 -t $ccores -c $nc 2>/dev/null
 fi
 
