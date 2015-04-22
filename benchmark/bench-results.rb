@@ -64,12 +64,14 @@ versions.each_pair do |k, v|
 		"get" => {
 			"hit" => [],
 			"miss" => [],
+			"total" => [],
 		},
 	}
 	v.each do |r|
 		accum["set"].push r["sets"]
 		accum["get"]["hit"].push r["gets"]["hit"]
 		accum["get"]["miss"].push r["gets"]["miss"]
+		accum["get"]["total"].push r["gets"]["hit"] + r["gets"]["miss"]
 	end
 
 	if accum["set"].length == 0
@@ -85,6 +87,7 @@ versions.each_pair do |k, v|
 		"get" => {
 			"hit" => $aggregator.call(v["get"]["hit"]),
 			"miss" => $aggregator.call(v["get"]["miss"]),
+			"total" => $aggregator.call(v["get"]["total"]),
 		},
 	}
 	versions[k] = agg
@@ -93,5 +96,5 @@ end
 versions.keys.sort { |a, b| a.gsub(/^.*-/, '').to_i <=> b.gsub(/^.*-/, '').to_i }.each do |k|
 	v = versions[k]
 	printf("%s\tSets\t%f\n", k, v["set"])
-	printf("%s\tGets\t%f\t%f\n", k, v["get"]["hit"], v["get"]["miss"])
+	printf("%s\tGets\t%f\t%f\t%f\n", k, v["get"]["hit"], v["get"]["miss"], v["get"]["total"])
 end
