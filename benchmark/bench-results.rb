@@ -13,6 +13,7 @@ aggregators = {
 		return (sorted[(len - 1) / 2] + sorted[len / 2]) / 2.0
 	end,
 	"max" => lambda { |array| array.max },
+	"min" => lambda { |array| array.min },
 	"mean" => lambda { |array| array.inject{ |sum, el| sum + el }.to_f / array.size }
 }
 
