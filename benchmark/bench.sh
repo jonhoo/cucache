@@ -37,6 +37,8 @@ else
 	pid=$!
 fi
 
+sleep 1
+
 if [ $no_numa -eq 1 ]; then
 	echo memtier_benchmark -p 2222 -P memcache_binary -n 20000 -t $ccores -c $nc
 	memtier_benchmark -p 2222 -P memcache_binary -n 20000 -t $ccores -c $nc 2>/dev/null
