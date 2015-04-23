@@ -6,7 +6,7 @@ and the latter is a slower 48-core machine with eight NUMA nodes.
 Benchmarks were performed with
 [memtier_benchmark](https://github.com/RedisLabs/memtier_benchmark) on
 the same machine as the servers with all connections going over
-loopback. The exact parameters used can be seen in [bench.sh](bench.sh).
+loopback, and using Go tip. The exact parameters used can be seen in [bench.sh](bench.sh).
 Experimental results suggest that when a real network link is used,
 memcached and cucache perform roughly the same. When used across
 loopback, cucache scales better than memcached, though its absolute
@@ -29,3 +29,11 @@ sets than gets, and thus the reported throughput can never exceed 1/10th
 of the number of gets. Similarly, if all the keys miss, the number of
 hits/s will be reported as being very low, simply because
 memtier_benchmark didn't see very many hits.
+
+## Profiling results
+
+Single-core CPU profile:
+![Single-core CPU profile](single-core-profile.svg)
+
+Multi-core (20 cores) CPU profile:
+![20-core CPU profile](multi-core-profile.svg)
