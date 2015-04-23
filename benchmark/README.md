@@ -18,3 +18,14 @@ memcached, but not so much for cucache. Furthermore, as the benchmark
 has to be run on a single machine to not have the network interface be
 the bottleneck, clients will eventually struggle to generate enough load
 to saturate the server's capacity. We can see this happening on ben.
+
+The numbers reported by memtier_benchmark can also be somewhat
+misleading. For example, it reports hits/s, sets/s, and misses/s, but
+these numbers are *not* necessarily the maximum throughput the server
+*could* achieve. Instead, they are the highest throughput
+memtier_benchmark ever *saw* for that operation. With a read/write ratio
+of 10:1 (the default), memtier_benchmark will execute ten times fewer
+sets than gets, and thus the reported throughput can never exceed 1/10th
+of the number of gets. Similarly, if all the keys miss, the number of
+hits/s will be reported as being very low, simply because
+memtier_benchmark didn't see very many hits.
