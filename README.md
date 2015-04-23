@@ -1,4 +1,4 @@
-# cuckoocache
+# cucache
 Fast PUT/GET/DELETE in-memory key-value store for lookaside caching.
 
 A mostly complete implementation the memcache
@@ -33,101 +33,20 @@ give no guarantees about support.
 ## Why another memcached?
 
 Cuckoo hashing is cool, and fast. Go is cool, and fast. Maybe the two
-can outcompete the aging memcached. In particular, the fine-grained
-write locking and lock-free reading might speed up concurrent access
-significantly.
+can outcompete the aging (though still very much relevant) memcached
+while keeping the code nice and readable. Furthermore, as the Go runtime
+improves over time, cucache might itself get faster *automatically*!
+
+The hope is that fine-grained write locking and lock-free reading might
+speed up concurrent access significantly, and allow better scalability
+to many cores. While the traditional memcached wisdom of "just shard
+your data more" works well most of the time, there comes a point where
+you have some single key that is extremely hot, and then sharing simply
+won't help you. You need to be able to distribute that keys load across
+multiple cores. Although memcached does support multi-threaded
+execution, the fact that it locks during reads is a potential scaling
+bottleneck.
 
 ## Experimental results
 
-Full results can be found in [cucache/benchmark](cucache/benchmark). The
-results below have been truncated.
-
-```
-$ memcached &
-$ memtier_benchmark -p 11211 -P memcache_binary -n 50000
-Type        Ops/sec     Hits/sec   Misses/sec      Latency       KB/sec
-------------------------------------------------------------------------
-Sets       13081.92          ---          ---      1.40800      1007.81
-Gets      130801.96        27.68    130774.28      1.40300      4967.66
-Totals    143883.89        27.68    130774.28      1.40300      5975.47
-
-Request Latency Distribution
-Type        <= msec      Percent
-------------------------------------------------------------------------
-SET               0        24.17
-SET               1        82.66
-SET               2        97.05
-SET               3        99.04
-SET               4        99.63
-SET               5        99.79
-SET               6        99.86
-SET               7        99.90
-SET               8        99.92
-SET               9        99.94
-SET              10        99.96
-SET              11        99.98
-SET              12        99.98
-SET              13        99.99
----
-GET               0        24.31
-GET               1        82.82
-GET               2        97.06
-GET               3        99.06
-GET               4        99.64
-GET               5        99.80
-GET               6        99.87
-GET               7        99.91
-GET               8        99.93
-GET               9        99.95
-GET              10        99.96
-GET              11        99.98
-GET              12        99.99
-```
-```
-$ GOMAXPROCS=2 dev/go/bin/cucache &
-$ memtier_benchmark -p 11211 -P memcache_binary -n 50000
-Type        Ops/sec     Hits/sec   Misses/sec      Latency       KB/sec
-------------------------------------------------------------------------
-Sets        8144.99          ---          ---      2.25100       627.48
-Gets       81439.15        16.13     81423.03      2.24700      3092.94
-Totals     89584.14        16.13     81423.03      2.24700      3720.41
-
-Request Latency Distribution
-Type        <= msec      Percent
-------------------------------------------------------------------------
-SET               0         2.38
-SET               1        42.06
-SET               2        86.07
-SET               3        98.62
-SET               4        99.07
-SET               5        99.17
-SET               6        99.25
-SET               7        99.33
-SET               8        99.41
-SET               9        99.51
-SET              10        99.67
-SET              11        99.86
-SET              12        99.95
-SET              13        99.97
-SET              14        99.99
----
-GET               0         2.39
-GET               1        42.22
-GET               2        86.18
-GET               3        98.64
-GET               4        99.08
-GET               5        99.17
-GET               6        99.25
-GET               7        99.34
-GET               8        99.42
-GET               9        99.51
-GET              10        99.67
-GET              11        99.87
-GET              12        99.95
-GET              13        99.98
-GET              14        99.99
-```
-
-### CPU Profile:
-
-![CPU profile of cucache](cucache/bechmark/profile.svg)
+See [benchmark/](benchmark/).
