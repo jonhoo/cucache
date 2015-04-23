@@ -3,7 +3,7 @@ set key top left
 set term pngcairo size 1200,600
 set output "ben.png"
 set xlabel "CPU Cores"
-set ylabel "ops/s"
+set ylabel "median ops/s"
 plot \
   "< grep memcached cucache.dat | sed s/memcached-// | grep Sets" u 1:3 dt 2 lt 1 t "Memcached set" w linespoints,\
   "< grep cucache cucache.dat | sed s/cucache-// | grep Sets"     u 1:3 lt 1 t "Cucache set" w linespoints,\
