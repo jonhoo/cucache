@@ -1,4 +1,6 @@
 ```
+ben$ uname -a
+Linux ben 3.16-2-amd64 #1 SMP Debian 3.16.3-2 (2014-09-20) x86_64 GNU/Linux
 ben$ lscpu
 Architecture:          x86_64
 CPU op-mode(s):        32-bit, 64-bit

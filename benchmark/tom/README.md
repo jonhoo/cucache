@@ -1,4 +1,6 @@
 ```
+tom$ uname -a
+Linux tom 3.13.0+ #1 SMP Fri Sep 12 19:16:24 EDT 2014 x86_64 GNU/Linux
 tom$ lscpu
 Architecture:          x86_64
 CPU op-mode(s):        32-bit, 64-bit
