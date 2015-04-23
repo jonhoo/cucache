@@ -21,7 +21,6 @@ $aggregator = aggregators["median"]
 if ARGV.length > 0 and aggregators.include? ARGV[0]
 	$aggregator = aggregators[ARGV.shift]
 end
-puts $aggregator
 
 versions = {}
 ARGV.each do |dir|
