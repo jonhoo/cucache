@@ -1,13 +1,17 @@
 # cucache
 Fast PUT/GET/DELETE in-memory key-value store for lookaside caching.
 
+[![Build Status](https://travis-ci.org/jonhoo/cucache.svg?branch=master)](https://travis-ci.org/jonhoo/cucache)
+
 A mostly complete implementation the memcache
 [text](https://github.com/memcached/memcached/blob/master/doc/protocol.txt)
 and
 [binary](https://code.google.com/p/memcached/wiki/MemcacheBinaryProtocol)
 protocols can be found inside [cucache](cucache/). The binary protocol
 has been tested using
-[memcached-test](https://github.com/dustin/memcached-test).
+[memcached-test](https://github.com/dustin/memcached-test), and the text
+protocol with simple test cases extracted from the protocol
+specification.
 
 The implementation uses Cuckoo hashing along with several [concurrency
 optimizations](https://www.cs.princeton.edu/~mfreed/docs/cuckoo-eurosys14.pdf).
