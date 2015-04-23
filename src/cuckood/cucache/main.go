@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"cuckood"
 	"cuckood/cucache/text"
-	"encoding/binary"
 	"flag"
 	"fmt"
 	"io"
@@ -188,44 +187,8 @@ func writeback(in <-chan *gomem.MCResponse, out_ io.Writer) {
 		}
 
 		// we've got a text protocol client
-		if res.Opcode.IsQuiet() && res.Status == gomem.SUCCESS {
-			// there is absolutely no reason to reply here
-			// a noreply get doesn't exist in the text protocol
-			resP.Put(res)
-			continue
-		}
-
-		// TODO: return when writes fail
-		switch res.Status {
-		case gomem.SUCCESS:
-			switch res.Opcode {
-			case gomem.GETK:
-				flags := binary.BigEndian.Uint32(res.Extras[0:4])
-				out.Write([]byte(fmt.Sprintf("VALUE %s %d %d %d\r\n", res.Key, flags, len(res.Body), res.Cas)))
-				out.Write(res.Body)
-				out.Write([]byte{'\r', '\n'})
-				out.Write([]byte("END\r\n"))
-			case gomem.SET, gomem.ADD, gomem.REPLACE:
-				out.Write([]byte("STORED\r\n"))
-			case gomem.DELETE:
-				out.Write([]byte("DELETED\r\n"))
-			case gomem.INCREMENT, gomem.DECREMENT:
-				v := binary.BigEndian.Uint64(res.Body)
-				out.Write([]byte(strconv.FormatUint(v, 10) + "\r\n"))
-			}
-		case gomem.KEY_ENOENT:
-			out.Write([]byte("NOT_FOUND\r\n"))
-		case gomem.KEY_EEXISTS:
-			out.Write([]byte("EXISTS\r\n"))
-		case gomem.NOT_STORED:
-			out.Write([]byte("NOT_STORED\r\n"))
-		case gomem.ENOMEM:
-			out.Write([]byte("SERVER_ERROR no space for new entry\r\n"))
-		case gomem.DELTA_BADVAL:
-			out.Write([]byte("CLIENT_ERROR incr/decr on non-numeric field\r\n"))
-		case gomem.UNKNOWN_COMMAND:
-			out.Write([]byte("ERROR\r\n"))
-		}
+		err := text.WriteMCResponse(res, out)
+		_ = err // TODO
 		resP.Put(res)
 	}
 }
