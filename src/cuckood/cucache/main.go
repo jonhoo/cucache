@@ -32,6 +32,8 @@ func init() {
 	}
 }
 
+var not_found []byte
+
 func main() {
 	cpuprofile := flag.String("cpuprofile", "", "CPU profile output file")
 	port := flag.Int("p", 11211, "TCP port to listen on")
@@ -70,6 +72,11 @@ func main() {
 			return
 		}
 	}
+
+	not_found = req2res(c, &gomem.MCRequest{
+		Opcode: gomem.GET,
+		Key:    []byte("there is no key"),
+	}).Bytes()
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -153,8 +160,13 @@ func writeback(in <-chan *gomem.MCResponse, out_ io.Writer) {
 	for res := range in {
 		if res.Opaque != 0xffffffff {
 			// binary protocol
+			var b []byte
 			quiet := res.Opcode.IsQuiet()
-			b := res.Bytes()
+			if res.Opcode == gomem.GET && res.Opaque == 0 && res.Status == gomem.KEY_ENOENT {
+				b = not_found
+			} else {
+				b = res.Bytes()
+			}
 			resP.Put(res)
 
 			mx.Lock()
