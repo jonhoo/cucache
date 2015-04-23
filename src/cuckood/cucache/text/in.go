@@ -1,15 +1,15 @@
 package text
 
 import (
-	"bufio"
 	"encoding/binary"
+	"io"
 	"strconv"
 	"strings"
 
 	gomem "github.com/dustin/gomemcached"
 )
 
-func ToMCRequest(cmd string, in *bufio.Reader) (req gomem.MCRequest, err error) {
+func ToMCRequest(cmd string, in io.Reader) (req gomem.MCRequest, err error) {
 	args := strings.Fields(strings.TrimSpace(cmd))
 	cmd = args[0]
 	args = args[1:]
@@ -30,7 +30,7 @@ func ToMCRequest(cmd string, in *bufio.Reader) (req gomem.MCRequest, err error) 
 		args = args[1:]
 		// MUST NOT have extras.
 		// MUST NOT have value.
-	case "set", "add", "replace":
+	case "set", "cas", "add", "replace":
 		// MUST have key.
 		req.Key = []byte(args[0])
 		args = args[1:]
@@ -95,16 +95,21 @@ func ToMCRequest(cmd string, in *bufio.Reader) (req gomem.MCRequest, err error) 
 		}
 
 		var by uint64
-		by, err = strconv.ParseUint(args[1], 10, 64)
+		by, err = strconv.ParseUint(args[0], 10, 64)
 		if err != nil {
 			return
 		}
 
 		req.Extras = make([]byte, 8+8+4)
 		binary.BigEndian.PutUint64(req.Extras[0:8], by)
-
 		binary.BigEndian.PutUint64(req.Extras[8:16], 0)
-		binary.BigEndian.PutUint64(req.Extras[16:20], 0)
+
+		/*
+		 * the item must already exist for incr/decr to work; these
+		 * commands won't pretend that a non-existent key exists with
+		 * value 0; instead, they will fail.
+		 */
+		binary.BigEndian.PutUint32(req.Extras[16:20], 0xffffffff)
 	case "quit":
 		// MUST NOT have extras.
 		// MUST NOT have key.

@@ -1,7 +1,6 @@
 package text
 
 import (
-	"bufio"
 	"errors"
 	"fmt"
 	"io"
@@ -14,7 +13,7 @@ func str2op(cmd string, quiet bool) (cc gomem.CommandCode) {
 	cc = 0xff
 	if !quiet {
 		switch cmd {
-		case "set":
+		case "set", "cas":
 			cc = gomem.SET
 		case "get", "gets":
 			cc = gomem.GETK
@@ -43,7 +42,7 @@ func str2op(cmd string, quiet bool) (cc gomem.CommandCode) {
 		}
 	} else {
 		switch cmd {
-		case "set":
+		case "set", "cas":
 			cc = gomem.SETQ
 		case "add":
 			cc = gomem.ADDQ
@@ -80,7 +79,7 @@ func strtm(in string) (uint32, error) {
 	return uint32(v), e
 }
 
-func setargs(args []string, in *bufio.Reader) (flags uint32, exp uint32, value []byte, err error) {
+func setargs(args []string, in io.Reader) (flags uint32, exp uint32, value []byte, err error) {
 	nbytes := args[len(args)-1]
 	args = args[:len(args)-1]
 	if len(args) >= 1 {
@@ -103,7 +102,7 @@ func setargs(args []string, in *bufio.Reader) (flags uint32, exp uint32, value [
 	return
 }
 
-func data(lenarg string, in *bufio.Reader) ([]byte, error) {
+func data(lenarg string, in io.Reader) ([]byte, error) {
 	ln, err := strconv.Atoi(lenarg)
 	if err != nil {
 		return nil, err
@@ -113,15 +112,12 @@ func data(lenarg string, in *bufio.Reader) ([]byte, error) {
 	_, err = io.ReadFull(in, b)
 	if err == nil {
 		// remove \r\n
-		r, err := in.ReadByte()
+		rn := make([]byte, 2)
+		_, err = io.ReadFull(in, rn)
 		if err != nil {
 			return nil, err
 		}
-		n, err := in.ReadByte()
-		if err != nil {
-			return nil, err
-		}
-		if r != '\r' || n != '\n' {
+		if rn[0] != '\r' || rn[1] != '\n' {
 			return nil, errors.New("data not terminated by \\r\\n")
 		}
 	}

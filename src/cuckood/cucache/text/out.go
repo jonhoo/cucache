@@ -43,7 +43,11 @@ func WriteMCResponse(res *gomem.MCResponse, out io.Writer) (err error) {
 			_, err = out.Write([]byte(strconv.FormatUint(v, 10) + "\r\n"))
 		}
 	case gomem.KEY_ENOENT:
-		_, err = out.Write([]byte("NOT_FOUND\r\n"))
+		if res.Opcode == gomem.GETK {
+			_, err = out.Write([]byte("END\r\n"))
+		} else {
+			_, err = out.Write([]byte("NOT_FOUND\r\n"))
+		}
 	case gomem.KEY_EEXISTS:
 		_, err = out.Write([]byte("EXISTS\r\n"))
 	case gomem.NOT_STORED:
