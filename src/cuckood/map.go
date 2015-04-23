@@ -122,6 +122,13 @@ func (m *cmap) insert(key keyt, upd Memop) (ret MemopRes) {
 	}
 	m.unlock(bins...)
 
+	// if the operation fails if a current element does not exist,
+	// there is no point doing the expensive insert search
+	_, ret = upd(Memval{}, false)
+	if ret.T != STORED {
+		return ret
+	}
+
 	// Item not currently present, is there room without a search?
 	for i, b := range bins {
 		if m.bins[b].available(now) {
