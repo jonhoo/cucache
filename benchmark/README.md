@@ -33,11 +33,7 @@ memtier_benchmark didn't see very many hits.
 ## Profiling results
 
 Single-core CPU profile:
-<a href="https://github.com/jonhoo/cucache/blob/master/benchmark/single-core-profile.svg">
-<img src="https://cdn.rawgit.com/jonhoo/cucache/master/benchmark/single-core-profile.svg" alt="Single-core CPU profile" width="1280" height="720"/>
-</a>
+![Single-core CPU profile](https://cdn.rawgit.com/jonhoo/cucache/master/benchmark/single-core-profile.svg)
 
 Multi-core (20 cores) CPU profile:
-<a href="https://github.com/jonhoo/cucache/blob/master/benchmark/multi-core-profile.svg">
-<img src="https://cdn.rawgit.com/jonhoo/cucache/master/benchmark/multi-core-profile.svg" alt="20-core CPU profile" width="1280" height="720" />
-</a>
+![20-core CPU profile](https://cdn.rawgit.com/jonhoo/cucache/master/benchmark/multi-core-profile.svg)
