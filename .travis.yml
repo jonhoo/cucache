@@ -1,0 +1,7 @@
+language: go
+install: env GOPATH=$PWD go get -t cuckood/...
+script: env GOPATH=$PWD go test -v cuckood/...
+go:
+  - 1.3
+  - 1.4
+  - tip
