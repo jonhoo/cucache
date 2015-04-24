@@ -2,20 +2,10 @@ package cuckoo
 
 import (
 	"bytes"
-	"sync"
 	"sync/atomic"
 	"time"
 	"unsafe"
 )
-
-var binP sync.Pool
-
-func init() {
-	binP.New = func() interface{} {
-		b := make([]int, 0, MAX_HASHES)
-		return &b
-	}
-}
 
 // offset64 is the fnv1a 64-bit offset
 var offset64 uint64 = 14695981039346656037
@@ -41,11 +31,8 @@ func (m *cmap) bin(n int, key keyt) int {
 
 // kbins returns all hashes of the given key.
 // as m.hashes increases, this function will return more hashes.
-func (m *cmap) kbins(key keyt) *[]int {
+func (m *cmap) kbins(key keyt, into []int) {
 	nb := uint64(len(m.bins))
-	nh := int(m.hashes)
-	bins := binP.Get().(*[]int)
-	*bins = (*bins)[0:nh]
 
 	// only hash the key once
 	s := offset64
@@ -54,16 +41,15 @@ func (m *cmap) kbins(key keyt) *[]int {
 		s *= prime64
 	}
 
-	for i := 0; i < nh; i++ {
+	for i := 0; i < len(into); i++ {
 		// compute key for this i
 		s_ := s
 		for _, o := range intoffs {
 			s_ ^= uint64(i >> o)
 			s_ *= prime64
 		}
-		(*bins)[i] = int(s_ % nb)
+		into[i] = int(s_ % nb)
 	}
-	return bins
 }
 
 // cbin is a single Cuckoo map bin holding up to ASSOCIATIVITY values.
