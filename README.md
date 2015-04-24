@@ -29,6 +29,8 @@ protocol.
   - The touch command is not implemented; see [dustin/gomemcached#12](https://github.com/dustin/gomemcached/pull/12)
   - Protocol should be tested against [mctest](https://github.com/victorkirkebo/mctest)
 
+Current implementation notes can be found in [wip.md](wip.md).
+
 ## Want to use it?
 
 Great! Please submit pull-requests and issues if you come across
