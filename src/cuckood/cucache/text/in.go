@@ -9,7 +9,7 @@ import (
 	gomem "github.com/dustin/gomemcached"
 )
 
-func ToMCRequest(cmd string, in io.Reader) (req gomem.MCRequest, err error) {
+func ToMCRequest(cmd string, in io.Reader) (reqs []gomem.MCRequest, err error) {
 	args := strings.Fields(strings.TrimSpace(cmd))
 	cmd = args[0]
 	args = args[1:]
@@ -21,15 +21,29 @@ func ToMCRequest(cmd string, in io.Reader) (req gomem.MCRequest, err error) {
 		args = args[:len(args)-1]
 	}
 
+	if cmd == "get" || cmd == "gets" {
+		reqs = make([]gomem.MCRequest, 0, len(args))
+		for _, k := range args[:len(args)-1] {
+			// MUST have key.
+			// MUST NOT have extras.
+			// MUST NOT have value.
+			reqs = append(reqs, gomem.MCRequest{
+				Opcode: gomem.GETKQ,
+				Key:    []byte(k),
+			})
+		}
+		reqs = append(reqs, gomem.MCRequest{
+			Opcode: gomem.GETK,
+			Key:    []byte(args[len(args)-1]),
+		})
+		return
+	}
+
+	reqs = make([]gomem.MCRequest, 1)
+	req := &reqs[0]
 	req.Opcode = str2op(cmd, quiet)
 
 	switch cmd {
-	case "get", "gets":
-		// MUST have key.
-		req.Key = []byte(args[0])
-		args = args[1:]
-		// MUST NOT have extras.
-		// MUST NOT have value.
 	case "set", "cas", "add", "replace":
 		// MUST have key.
 		req.Key = []byte(args[0])

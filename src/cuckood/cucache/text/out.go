@@ -10,16 +10,15 @@ import (
 )
 
 func WriteMCResponse(res *gomem.MCResponse, out io.Writer) (err error) {
-	if res.Opcode.IsQuiet() && res.Status == gomem.SUCCESS {
+	if res.Opcode.IsQuiet() && res.Opcode != gomem.GETKQ && res.Status == gomem.SUCCESS {
 		// there is absolutely no reason to reply here
-		// a noreply get doesn't exist in the text protocol
 		return nil
 	}
 
 	switch res.Status {
 	case gomem.SUCCESS:
 		switch res.Opcode {
-		case gomem.GETK:
+		case gomem.GETK, gomem.GETKQ:
 			flags := binary.BigEndian.Uint32(res.Extras[0:4])
 			_, err = out.Write([]byte(fmt.Sprintf("VALUE %s %d %d %d\r\n", res.Key, flags, len(res.Body), res.Cas)))
 			if err != nil {
@@ -33,7 +32,9 @@ func WriteMCResponse(res *gomem.MCResponse, out io.Writer) (err error) {
 			if err != nil {
 				return
 			}
-			_, err = out.Write([]byte("END\r\n"))
+			if res.Opcode == gomem.GETK {
+				_, err = out.Write([]byte("END\r\n"))
+			}
 		case gomem.SET, gomem.ADD, gomem.REPLACE:
 			_, err = out.Write([]byte("STORED\r\n"))
 		case gomem.DELETE:
@@ -45,6 +46,7 @@ func WriteMCResponse(res *gomem.MCResponse, out io.Writer) (err error) {
 	case gomem.KEY_ENOENT:
 		if res.Opcode == gomem.GETK {
 			_, err = out.Write([]byte("END\r\n"))
+		} else if res.Opcode == gomem.GETKQ {
 		} else {
 			_, err = out.Write([]byte("NOT_FOUND\r\n"))
 		}

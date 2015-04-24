@@ -1,10 +1,6 @@
 Max item limit -- use this + available memory to determine #records
 Avoid iterating over empty bins for touchall?
 
-Return multiple reqs from transform, send all to exec, allows multi-get text
-  - make all GETKQ, except last => GETK
-  - need to special case response for GETKQ/GETK
-
 Key tagging (from MemC3):
   - https://www.cs.cmu.edu/~dga/papers/memc3-nsdi2013.pdf
   - With each cval, store one byte of the hash of the key ("tag")

@@ -11,17 +11,27 @@ import (
 )
 
 func hlp(t *testing.T, cmd string, in []byte, exp gomem.MCRequest) {
+	hlps(t, cmd, in, []gomem.MCRequest{exp})
+}
+
+func hlps(t *testing.T, cmd string, in []byte, exp []gomem.MCRequest) {
 	var in_ bytes.Buffer
 	in_.Write(in)
 
-	req, err := text.ToMCRequest(cmd, &in_)
+	reqs, err := text.ToMCRequest(cmd, &in_)
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
-	if !bytes.Equal(req.Bytes(), exp.Bytes()) {
-		t.Errorf("\nexpected:\n%+v\ngot:\n%+v", &exp, req)
+	if len(exp) != len(reqs) {
+		t.Errorf("expected %d request objects, got %d\n", len(exp), len(reqs))
+	}
+
+	for i := range exp {
+		if !bytes.Equal(reqs[i].Bytes(), exp[i].Bytes()) {
+			t.Errorf("\n[%d] expected:\n%+v\ngot:\n%+v", i, &exp[i], reqs[i])
+		}
 	}
 }
 
@@ -154,6 +164,24 @@ func TestRetrieval(t *testing.T) {
 		Key:    []byte("a"),
 		Body:   nil,
 	})
+}
+
+func TestMultiRetrieval(t *testing.T) {
+	key_a := gomem.MCRequest{
+		Opcode: gomem.GETKQ,
+		Cas:    0,
+		Opaque: 0,
+		Extras: nil,
+		Key:    []byte("a"),
+		Body:   nil,
+	}
+
+	key_b := key_a
+	key_b.Opcode = gomem.GETK
+	key_b.Key = []byte("b")
+
+	hlps(t, "get a b", nil, []gomem.MCRequest{key_a, key_b})
+	hlps(t, "gets a b", nil, []gomem.MCRequest{key_a, key_b})
 }
 
 func TestDeletion(t *testing.T) {

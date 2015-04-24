@@ -179,6 +179,54 @@ func TestRetrievalOut(t *testing.T) {
 	}, "END\r\n")
 }
 
+func TestMultiRetrievalOut(t *testing.T) {
+	data := []byte("hello")
+	flag := make([]byte, 4)
+	binary.BigEndian.PutUint32(flag[0:4], 2)
+
+	hlp_out(t, gomem.MCResponse{
+		Opcode: gomem.GETK,
+		Status: gomem.SUCCESS,
+		Opaque: 0,
+		Cas:    1,
+		Extras: flag,
+		Key:    []byte("a"),
+		Body:   data,
+		Fatal:  false,
+	}, fmt.Sprintf("VALUE a 2 %d 1\r\n%s\r\nEND\r\n", len(data), data))
+	hlp_out(t, gomem.MCResponse{
+		Opcode: gomem.GETK,
+		Status: gomem.KEY_ENOENT,
+		Opaque: 0,
+		Cas:    0,
+		Extras: flag,
+		Key:    nil,
+		Body:   nil,
+		Fatal:  false,
+	}, "END\r\n")
+
+	hlp_out(t, gomem.MCResponse{
+		Opcode: gomem.GETKQ,
+		Status: gomem.SUCCESS,
+		Opaque: 0,
+		Cas:    1,
+		Extras: flag,
+		Key:    []byte("a"),
+		Body:   data,
+		Fatal:  false,
+	}, fmt.Sprintf("VALUE a 2 %d 1\r\n%s\r\n", len(data), data))
+	hlp_out(t, gomem.MCResponse{
+		Opcode: gomem.GETKQ,
+		Status: gomem.KEY_ENOENT,
+		Opaque: 0,
+		Cas:    0,
+		Extras: flag,
+		Key:    nil,
+		Body:   nil,
+		Fatal:  false,
+	}, "")
+}
+
 func TestDeletionOut(t *testing.T) {
 	hlp_out(t, gomem.MCResponse{
 		Opcode: gomem.DELETE,

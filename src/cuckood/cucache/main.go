@@ -206,14 +206,14 @@ func parse(in_ io.Reader, out chan<- *gomem.MCRequest) {
 			return
 		}
 
-		req := reqP.Get().(*gomem.MCRequest)
-		req.Cas = 0
-		req.Key = nil
-		req.Body = nil
-		req.Extras = nil
-		req.Opcode = 0
-		req.Opaque = 0
 		if b[0] == gomem.REQ_MAGIC {
+			req := reqP.Get().(*gomem.MCRequest)
+			req.Cas = 0
+			req.Key = nil
+			req.Body = nil
+			req.Extras = nil
+			req.Opcode = 0
+			req.Opaque = 0
 			_, err := req.Receive(in, nil)
 			if err != nil {
 				if err == io.EOF {
@@ -223,23 +223,28 @@ func parse(in_ io.Reader, out chan<- *gomem.MCRequest) {
 				// TODO: print error
 				continue
 			}
+			out <- req
 		} else {
 			// text protocol fallback
 			cmd, err := in.ReadString('\n')
 			if err != nil {
 				if err == io.EOF {
-					reqP.Put(req)
 					return
 				}
 				// TODO: print error
 				return
 			}
 
-			*req, err = text.ToMCRequest(cmd, in)
-			req.Opaque = 0xffffffff
+			reqs, err := text.ToMCRequest(cmd, in)
+			if err != nil {
+				// TODO: print error
+				return
+			}
+			for _, req := range reqs {
+				req.Opaque = 0xffffffff
+				out <- &req
+			}
 		}
-
-		out <- req
 	}
 	close(out)
 }
