@@ -6,198 +6,24 @@
 	"iterations": 20,
 	"parallelism": 1,
 	"versions": {
-		"cucache-1": {
+		"cucache-$cores": {
+			"vary": {
+				"cores": "set(1,2,4,6,8,10,12,14,16,18,20)"
+			},
 			"arguments": [
 				"$SRC/benchmark/bench.sh",
-				"1",
+				"$cores",
 				"28",
 				"$SRC/bin/cucache"
 			]
 		},
-		"cucache-2": {
+		"memcached-$cores": {
+			"vary": {
+				"cores": "set(1,2,4,6,8,10,12,14,16,18,20)"
+			},
 			"arguments": [
 				"$SRC/benchmark/bench.sh",
-				"2",
-				"28",
-				"$SRC/bin/cucache"
-			]
-		},
-		"cucache-4": {
-			"arguments": [
-				"$SRC/benchmark/bench.sh",
-				"4",
-				"28",
-				"$SRC/bin/cucache"
-			]
-		},
-		"cucache-6": {
-			"arguments": [
-				"$SRC/benchmark/bench.sh",
-				"6",
-				"28",
-				"$SRC/bin/cucache"
-			]
-		},
-		"cucache-8": {
-			"arguments": [
-				"$SRC/benchmark/bench.sh",
-				"8",
-				"28",
-				"$SRC/bin/cucache"
-			]
-		},
-		"cucache-10": {
-			"arguments": [
-				"$SRC/benchmark/bench.sh",
-				"10",
-				"28",
-				"$SRC/bin/cucache"
-			]
-		},
-		"cucache-12": {
-			"arguments": [
-				"$SRC/benchmark/bench.sh",
-				"12",
-				"28",
-				"$SRC/bin/cucache"
-			]
-		},
-		"cucache-14": {
-			"arguments": [
-				"$SRC/benchmark/bench.sh",
-				"14",
-				"28",
-				"$SRC/bin/cucache"
-			]
-		},
-		"cucache-16": {
-			"arguments": [
-				"$SRC/benchmark/bench.sh",
-				"16",
-				"28",
-				"$SRC/bin/cucache"
-			]
-		},
-		"cucache-18": {
-			"arguments": [
-				"$SRC/benchmark/bench.sh",
-				"18",
-				"28",
-				"$SRC/bin/cucache"
-			]
-		},
-		"cucache-20": {
-			"arguments": [
-				"$SRC/benchmark/bench.sh",
-				"20",
-				"28",
-				"$SRC/bin/cucache"
-			]
-		},
-		"memcached-1": {
-			"arguments": [
-				"$SRC/benchmark/bench.sh",
-				"1",
-				"28",
-				"memcached",
-				"-t",
-				"SCORES"
-			]
-		},
-		"memcached-2": {
-			"arguments": [
-				"$SRC/benchmark/bench.sh",
-				"2",
-				"28",
-				"memcached",
-				"-t",
-				"SCORES"
-			]
-		},
-		"memcached-4": {
-			"arguments": [
-				"$SRC/benchmark/bench.sh",
-				"4",
-				"28",
-				"memcached",
-				"-t",
-				"SCORES"
-			]
-		},
-		"memcached-6": {
-			"arguments": [
-				"$SRC/benchmark/bench.sh",
-				"6",
-				"28",
-				"memcached",
-				"-t",
-				"SCORES"
-			]
-		},
-		"memcached-8": {
-			"arguments": [
-				"$SRC/benchmark/bench.sh",
-				"8",
-				"28",
-				"memcached",
-				"-t",
-				"SCORES"
-			]
-		},
-		"memcached-10": {
-			"arguments": [
-				"$SRC/benchmark/bench.sh",
-				"10",
-				"28",
-				"memcached",
-				"-t",
-				"SCORES"
-			]
-		},
-		"memcached-12": {
-			"arguments": [
-				"$SRC/benchmark/bench.sh",
-				"12",
-				"28",
-				"memcached",
-				"-t",
-				"SCORES"
-			]
-		},
-		"memcached-14": {
-			"arguments": [
-				"$SRC/benchmark/bench.sh",
-				"14",
-				"28",
-				"memcached",
-				"-t",
-				"SCORES"
-			]
-		},
-		"memcached-16": {
-			"arguments": [
-				"$SRC/benchmark/bench.sh",
-				"16",
-				"28",
-				"memcached",
-				"-t",
-				"SCORES"
-			]
-		},
-		"memcached-18": {
-			"arguments": [
-				"$SRC/benchmark/bench.sh",
-				"18",
-				"28",
-				"memcached",
-				"-t",
-				"SCORES"
-			]
-		},
-		"memcached-20": {
-			"arguments": [
-				"$SRC/benchmark/bench.sh",
-				"20",
+				"$cores",
 				"28",
 				"memcached",
 				"-t",
