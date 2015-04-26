@@ -34,6 +34,8 @@ LRU cache eviction using CLOCK (from MemC3):
 
 Benchmarks:
   - What is the performance as occupancy increases?
+  - Is 8 the right number of values for each bin? Will slow down lookup
+    (even with MemC3 tags)
   - Facebook-inspired numbers:
     - http://www.ece.eng.wayne.edu/~sjiang/pubs/papers/atikoglu12-memcached.pdf
     - Use proper read:write ratio (Facebook reports >30:1, sometimes 500:1)
@@ -43,7 +45,6 @@ Benchmarks:
       - 10% of keys in 90% of requests?
     - Key size distribution: GEV dist u = 30.7984, sig = 8.20449, k = 0.078688
       Value size distribution: RP dist θ = 0, sig = 214.476, k = 0.348238
-  - Use proper key contention!
 
 UDP protocol needs to be implemented
 
