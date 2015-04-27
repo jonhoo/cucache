@@ -126,7 +126,11 @@ func (c *Cuckoo) op(key []byte, upd Memop) MemopRes {
 				// TODO: keep CAS values
 				res = newm.insert(v.key, fadd(v.val.Bytes, v.val.Flags, v.val.Expires))
 				if res.T != STORED {
-					panic(fmt.Sprintln("Failed to move element to new map", v, res))
+					atomic.AddUint32(&newm.hashes, 1)
+					res = newm.insert(v.key, fadd(v.val.Bytes, v.val.Flags, v.val.Expires))
+					if res.T != STORED {
+						panic(fmt.Sprintln("Failed to move element to new map", v, res))
+					}
 				}
 				i++
 			}
