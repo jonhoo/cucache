@@ -222,7 +222,8 @@ func (m *cmap) insert(key keyt, upd Memop) (ret MemopRes) {
 // get returns the current value (if any) for the given key
 func (m *cmap) get(key keyt) (ret MemopRes) {
 	now := time.Now()
-	bins := make([]int, int(m.hashes))
+	var bins_ [MAX_HASHES]int
+	bins := bins_[0:int(m.hashes)]
 	m.kbins(key, bins)
 
 	ret.T = NOT_FOUND
