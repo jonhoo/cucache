@@ -13,8 +13,9 @@ has been tested using
 protocol with simple test cases extracted from the protocol
 specification.
 
-The implementation uses Cuckoo hashing along with several [concurrency
-optimizations](https://www.cs.princeton.edu/~mfreed/docs/cuckoo-eurosys14.pdf).
+The implementation uses Cuckoo hashing along with several
+[concurrency](https://www.cs.cmu.edu/~dga/papers/memc3-nsdi2013.pdf)
+[optimizations](https://www.cs.princeton.edu/~mfreed/docs/cuckoo-eurosys14.pdf).
 The implementation uses much of the code from [Dustin Sallings'
 gomemcached](https://github.com/dustin/gomemcached) for the binary
 protocol.
