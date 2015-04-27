@@ -35,7 +35,7 @@ memtier_benchmark didn't see very many hits.
 ## Profiling results
 
 Single-core CPU profile (ben):
-![Single-core CPU profile](https://cdn.rawgit.com/jonhoo/cucache/4d0afd93d4313293fc2a38d78c50f328add94b3c/benchmark/single-core-profile.svg)
+![Single-core CPU profile](https://cdn.rawgit.com/jonhoo/cucache/65fe27c4bbd6a16c87a141478121b3e62e526ab9/benchmark/single-core-profile.svg)
 
 Multi-core CPU profile (10 server cores, ben):
-![20-core CPU profile](https://cdn.rawgit.com/jonhoo/cucache/4d0afd93d4313293fc2a38d78c50f328add94b3c/benchmark/multi-core-profile.svg)
+![20-core CPU profile](https://cdn.rawgit.com/jonhoo/cucache/65fe27c4bbd6a16c87a141478121b3e62e526ab9/benchmark/multi-core-profile.svg)
