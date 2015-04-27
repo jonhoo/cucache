@@ -18,6 +18,15 @@ type cmap struct {
 	hashes uint32
 }
 
+// create allocates a new Cuckoo map of the given size.
+// Two hash functions are used.
+func create(bins int) *cmap {
+	m := new(cmap)
+	m.bins = make([]cbin, bins)
+	m.hashes = 2
+	return m
+}
+
 // iterate returns a channel that contains every currently set value.
 // in the face of concurrent updates, some elements may be repeated or lost.
 func (m *cmap) iterate() <-chan cval {

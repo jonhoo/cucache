@@ -20,7 +20,7 @@ import (
        self.assertTrue(len(v) > 0, "Bad version:  ``" + str(v) + "''")
 */
 func TestVersion(t *testing.T) {
-	c := cuckoo.New()
+	c := cuckoo.New(0)
 	res := do(c, t, &gomem.MCRequest{
 		Opcode: gomem.VERSION,
 	})
@@ -37,7 +37,7 @@ func TestVersion(t *testing.T) {
        self.assertGet((19, "somevalue"), self.mc.get("x"))
 */
 func TestSimpleSetGet(t *testing.T) {
-	c := cuckoo.New()
+	c := cuckoo.New(0)
 	assertSet(c, t, "x", []byte("somevalue"), gomem.SET)
 	assertGet(c, t, "x", []byte("somevalue"))
 }
@@ -50,7 +50,7 @@ func TestSimpleSetGet(t *testing.T) {
        self.assertGet((19, "somevalue"), self.mc.get("x"))
 */
 func TestZeroExpiration(t *testing.T) {
-	c := cuckoo.New()
+	c := cuckoo.New(0)
 	assertSet(c, t, "x", []byte("somevalue"), gomem.SET)
 	time.Sleep(1*time.Second + 100*time.Millisecond)
 	assertGet(c, t, "x", []byte("somevalue"))
@@ -65,7 +65,7 @@ func TestZeroExpiration(t *testing.T) {
        self.assertNotExists("x")
 */
 func TestDelete(t *testing.T) {
-	c := cuckoo.New()
+	c := cuckoo.New(0)
 	assertSet(c, t, "x", []byte("somevalue"), gomem.SET)
 	assertGet(c, t, "x", []byte("somevalue"))
 	do(c, t, &gomem.MCRequest{
@@ -87,7 +87,7 @@ func TestDelete(t *testing.T) {
        self.assertNotExists("y")
 */
 func TestFlush(t *testing.T) {
-	c := cuckoo.New()
+	c := cuckoo.New(0)
 	assertSet(c, t, "x", []byte("somevaluex"), gomem.SET)
 	assertSet(c, t, "y", []byte("somevaluey"), gomem.SET)
 	assertGet(c, t, "x", []byte("somevaluex"))
@@ -106,7 +106,7 @@ func TestFlush(t *testing.T) {
        self.mc.noop()
 */
 func TestNoop(t *testing.T) {
-	c := cuckoo.New()
+	c := cuckoo.New(0)
 	do(c, t, &gomem.MCRequest{
 		Opcode: gomem.NOOP,
 	})
@@ -126,7 +126,7 @@ func TestNoop(t *testing.T) {
        self.assertGet((19, "ex"), self.mc.get("x"))
 */
 func TestAdd(t *testing.T) {
-	c := cuckoo.New()
+	c := cuckoo.New(0)
 	assertNotExists(c, t, "x")
 
 	assertSet(c, t, "x", []byte("ex"), gomem.ADD)
@@ -155,7 +155,7 @@ func TestAdd(t *testing.T) {
        self.assertGet((19, "ex2"), self.mc.get("x"))
 */
 func TestReplace(t *testing.T) {
-	c := cuckoo.New()
+	c := cuckoo.New(0)
 	assertNotExists(c, t, "x")
 
 	res := set(c, "x", []byte("ex"), gomem.REPLACE)
@@ -193,7 +193,7 @@ func TestReplace(t *testing.T) {
        self.assertNotExists("x")
 */
 func TestIncrDoesntExistNoCreate(t *testing.T) {
-	c := cuckoo.New()
+	c := cuckoo.New(0)
 	res := pm(c, "x", 1, 1, true, gomem.INCREMENT)
 	if res.Status != gomem.KEY_ENOENT {
 		t.Errorf("expected incr on non-existing key to fail, got %v", res.Status)
@@ -207,7 +207,7 @@ func TestIncrDoesntExistNoCreate(t *testing.T) {
        self.assertEquals(19, self.mc.incr("x", init=19)[0])
 */
 func TestIncrDoesntExistCreate(t *testing.T) {
-	c := cuckoo.New()
+	c := cuckoo.New(0)
 	assertPM(c, t, "x", 0, 19, false, gomem.INCREMENT)
 	assertGet(c, t, "x", []byte("19"))
 }
@@ -223,7 +223,7 @@ func TestIncrDoesntExistCreate(t *testing.T) {
        self.assertNotExists("x")
 */
 func TestDecrDoesntExistNoCreate(t *testing.T) {
-	c := cuckoo.New()
+	c := cuckoo.New(0)
 	res := pm(c, "x", 1, 1, true, gomem.DECREMENT)
 	if res.Status != gomem.KEY_ENOENT {
 		t.Errorf("expected decr on non-existing key to fail, got %v", res.Status)
@@ -237,7 +237,7 @@ func TestDecrDoesntExistNoCreate(t *testing.T) {
        self.assertEquals(19, self.mc.decr("x", init=19)[0])
 */
 func TestDecrDoesntExistCreate(t *testing.T) {
-	c := cuckoo.New()
+	c := cuckoo.New(0)
 	assertPM(c, t, "x", 0, 19, false, gomem.DECREMENT)
 	assertGet(c, t, "x", []byte("19"))
 }
@@ -256,7 +256,7 @@ func TestDecrDoesntExistCreate(t *testing.T) {
        self.assertEquals(8589934804L, val)
 */
 func TestIncr(t *testing.T) {
-	c := cuckoo.New()
+	c := cuckoo.New(0)
 	assertPM(c, t, "x", 1, 0, false, gomem.INCREMENT)
 	assertGet(c, t, "x", []byte("0"))
 	assertPM(c, t, "x", 1, 0, false, gomem.INCREMENT)
@@ -279,7 +279,7 @@ func TestIncr(t *testing.T) {
        self.assertEquals(0, val)
 */
 func TestDecr(t *testing.T) {
-	c := cuckoo.New()
+	c := cuckoo.New(0)
 	assertPM(c, t, "x", 1, 5, false, gomem.DECREMENT)
 	assertGet(c, t, "x", []byte("5"))
 	assertPM(c, t, "x", 1, 0, false, gomem.DECREMENT)
@@ -319,7 +319,7 @@ func TestDecr(t *testing.T) {
        self.assertEquals("new value", newval)
 */
 func TestCas(t *testing.T) {
-	c := cuckoo.New()
+	c := cuckoo.New(0)
 	req := &gomem.MCRequest{
 		Opcode: gomem.SET,
 		Key:    []byte("x"),
@@ -372,7 +372,7 @@ func TestCas(t *testing.T) {
        self.assertValidCas('x', vals[1])
 */
 func TestSetReturnsCas(t *testing.T) {
-	c := cuckoo.New()
+	c := cuckoo.New(0)
 	res_set := assertSet(c, t, "x", []byte("some val"), gomem.SET)
 	res_get := assertGet(c, t, "x", []byte("some val"))
 	if res_set.Cas != res_get.Cas {
@@ -387,7 +387,7 @@ func TestSetReturnsCas(t *testing.T) {
        self.assertValidCas('x', vals[1])
 */
 func TestAddReturnsCas(t *testing.T) {
-	c := cuckoo.New()
+	c := cuckoo.New(0)
 	res_set := assertSet(c, t, "x", []byte("some val"), gomem.ADD)
 	res_get := assertGet(c, t, "x", []byte("some val"))
 	if res_set.Cas != res_get.Cas {
@@ -403,7 +403,7 @@ func TestAddReturnsCas(t *testing.T) {
        self.assertValidCas('x', vals[1])
 */
 func TestReplaceReturnsCas(t *testing.T) {
-	c := cuckoo.New()
+	c := cuckoo.New(0)
 	assertSet(c, t, "x", []byte("some val"), gomem.ADD)
 	res_set := assertSet(c, t, "x", []byte("other val"), gomem.REPLACE)
 	res_get := assertGet(c, t, "x", []byte("other val"))
@@ -421,7 +421,7 @@ func TestReplaceReturnsCas(t *testing.T) {
        self.assertValidCas('x', cas)
 */
 func TestIncrReturnsCas(t *testing.T) {
-	c := cuckoo.New()
+	c := cuckoo.New(0)
 	assertSet(c, t, "x", []byte("4"), gomem.ADD)
 	res_set := assertPM(c, t, "x", 1, 5, true, gomem.INCREMENT)
 	res_get := assertGet(c, t, "x", []byte("5"))
@@ -440,7 +440,7 @@ func TestIncrReturnsCas(t *testing.T) {
        self.assertValidCas('x', cas)
 */
 func TestDecrReturnsCas(t *testing.T) {
-	c := cuckoo.New()
+	c := cuckoo.New(0)
 	assertSet(c, t, "x", []byte("4"), gomem.ADD)
 	res_set := assertPM(c, t, "x", 1, 5, true, gomem.DECREMENT)
 	res_get := assertGet(c, t, "x", []byte("3"))
@@ -467,7 +467,7 @@ func TestDecrReturnsCas(t *testing.T) {
        self.assertNotExists('x')
 */
 func TestDeletionCAS(t *testing.T) {
-	c := cuckoo.New()
+	c := cuckoo.New(0)
 	req := &gomem.MCRequest{
 		Opcode: gomem.DELETE,
 		Key:    []byte("x"),
@@ -503,7 +503,7 @@ func TestDeletionCAS(t *testing.T) {
        self.assertGet((19, 'something'), self.mc.get("x"))
 */
 func TestAppend(t *testing.T) {
-	c := cuckoo.New()
+	c := cuckoo.New(0)
 
 	assertSet(c, t, "x", []byte("some"), gomem.SET)
 	do(c, t, &gomem.MCRequest{
@@ -526,7 +526,7 @@ func TestAppend(t *testing.T) {
        self.assertGet((19, 'some'), self.mc.get("x"))
 */
 func TestAppendCAS(t *testing.T) {
-	c := cuckoo.New()
+	c := cuckoo.New(0)
 	req := &gomem.MCRequest{
 		Opcode: gomem.APPEND,
 		Key:    []byte("x"),
@@ -550,7 +550,7 @@ func TestAppendCAS(t *testing.T) {
        self.assertGet((19, 'thingsome'), self.mc.get("x"))
 */
 func TestPrepend(t *testing.T) {
-	c := cuckoo.New()
+	c := cuckoo.New(0)
 
 	assertSet(c, t, "x", []byte("some"), gomem.SET)
 	do(c, t, &gomem.MCRequest{
@@ -573,7 +573,7 @@ func TestPrepend(t *testing.T) {
        self.assertGet((19, 'some'), self.mc.get("x"))
 */
 func TestPrependCAS(t *testing.T) {
-	c := cuckoo.New()
+	c := cuckoo.New(0)
 	req := &gomem.MCRequest{
 		Opcode: gomem.PREPEND,
 		Key:    []byte("x"),
@@ -599,7 +599,7 @@ func TestPrependCAS(t *testing.T) {
        self.assertNotExists('x')
 */
 func TestTimeBombedFlush(t *testing.T) {
-	c := cuckoo.New()
+	c := cuckoo.New(0)
 	assertSet(c, t, "x", []byte("some"), gomem.ADD)
 
 	exp := make([]byte, 4)

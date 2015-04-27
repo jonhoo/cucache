@@ -16,7 +16,7 @@ import (
 var never = time.Time{}
 
 func TestSimple(t *testing.T) {
-	c := cuckoo.New()
+	c := cuckoo.New(0)
 	c.Set([]byte("hello"), []byte("world"), 0, never)
 	v, ok := c.Get([]byte("hello"))
 
@@ -30,7 +30,7 @@ func TestSimple(t *testing.T) {
 }
 
 func TestMany(t *testing.T) {
-	c := cuckoo.New()
+	c := cuckoo.New(1e4)
 
 	for i := 0; i < 1e3; i++ {
 		j := uint64(rand.Int63())
@@ -39,7 +39,27 @@ func TestMany(t *testing.T) {
 		c.Set([]byte(strconv.FormatUint(j, 10)), b, 0, never)
 		v, ok := c.Get([]byte(strconv.FormatUint(j, 10)))
 		if !ok {
-			t.Error("Concurrent get failed")
+			t.Error("Concurrent get failed for key", []byte(strconv.FormatUint(j, 10)))
+			return
+		}
+		if !bytes.Equal(b, v.Bytes) {
+			t.Error("Concurrent get did not return correct value")
+		}
+	}
+}
+
+func TestResize(t *testing.T) {
+	c := cuckoo.New(1e3)
+
+	for i := 0; i < 1e4; i++ {
+		j := uint64(rand.Int63())
+		b := make([]byte, 8)
+		binary.BigEndian.PutUint64(b, j)
+		c.Set([]byte(strconv.FormatUint(j, 10)), b, 0, never)
+		v, ok := c.Get([]byte(strconv.FormatUint(j, 10)))
+		if !ok {
+			t.Error("Concurrent get failed for key", []byte(strconv.FormatUint(j, 10)))
+			return
 		}
 		if !bytes.Equal(b, v.Bytes) {
 			t.Error("Concurrent get did not return correct value")
@@ -49,7 +69,7 @@ func TestMany(t *testing.T) {
 
 func TestConcurrent(t *testing.T) {
 	runtime.GOMAXPROCS(4)
-	c := cuckoo.New()
+	c := cuckoo.New(1e4)
 
 	ech := make(chan bool)
 	errs := 0
@@ -89,7 +109,7 @@ func TestConcurrent(t *testing.T) {
 		}(i)
 	}
 
-	for i := 0; i < 70e3; i++ {
+	for i := 0; i < 65e3; i++ {
 		ch <- i
 
 		if i%2e3 == 0 {
@@ -104,7 +124,7 @@ func TestConcurrent(t *testing.T) {
 
 func TestSameKey(t *testing.T) {
 	runtime.GOMAXPROCS(4)
-	c := cuckoo.New()
+	c := cuckoo.New(1e4)
 
 	get := func() {
 		v, ok := c.Get([]byte("a"))

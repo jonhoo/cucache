@@ -21,8 +21,6 @@ protocol.
 
 ## Known limitations and outstanding things
 
-  - Keyspace must be pre-allocated (!!!)
-  - Unbounded buffering (quieted gets and #bytes for sets)
   - Needs configurable debugging information output
   - No support for eviction of LRU items
   - The touch command is not implemented; see [dustin/gomemcached#12](https://github.com/dustin/gomemcached/pull/12)

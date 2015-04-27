@@ -3,15 +3,16 @@ Max item limit
 
 Table resize (grow in particular)
   - How can we be cleverer about this to allow resizing without locking
-    everything?
-  - What's the best way to resize? Here are two ways to do it:
-    - Allocate a new table, do insert() for each item.
-    - Allocate a new table, copy over all items in same location (using
-      `copy()`, which should be faster), but keep original hash
-      functions **including mod**. Add (at least one) new hash function
-      with new (larger) mod. This will slow down the new table (more
-      hash functions to check), but should significantly speed up the
-      resize itself.
+    all concurrent inserts?
+  - What's the best way to resize?
+    Currently we just copy over the elements, but we could also allocate
+    a new table, copy over all items in same location (using `copy()`,
+    which should be faster), but keep original hash functions
+    **including mod**. We then add (at least one) new hash function with
+    new (larger) mod. This will slow down the new table (more hash
+    functions to check), but should significantly speed up the resize
+    itself.
+  - How should shrink be supported (if at all)?
 
 Hash table size power of two
   - Can use & instead of %
