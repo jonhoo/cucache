@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-const MAX_SEARCH_DEPTH int = 10
+const MAX_SEARCH_DEPTH int = 1000
 
 type mv struct {
 	key  keyt
