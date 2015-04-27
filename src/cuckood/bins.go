@@ -1,7 +1,6 @@
 package cuckoo
 
 import (
-	"bytes"
 	"sync/atomic"
 	"time"
 	"unsafe"
@@ -126,12 +125,12 @@ func (b *cbin) add(val *cval, upd Memop, now time.Time) (ret MemopRes) {
 
 // has returns the slot holding the key data for the given key in this bin.
 // if no slot has the relevant key data, -1 is returned.
-func (b *cbin) has(key keyt, now time.Time) int {
+func (b *cbin) has(key keyt, now time.Time) (int, *cval) {
 	for i := 0; i < ASSOCIATIVITY; i++ {
 		v := b.v(i)
-		if v != nil && v.present(now) && bytes.Equal(v.key, key) {
-			return i
+		if v != nil && v.holds(key, now) {
+			return i, v
 		}
 	}
-	return -1
+	return -1, nil
 }

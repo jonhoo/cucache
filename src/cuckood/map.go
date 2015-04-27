@@ -1,7 +1,6 @@
 package cuckoo
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"sort"
@@ -85,9 +84,9 @@ func (m *cmap) del(key keyt, casid uint64) (ret MemopRes) {
 
 	ret.T = NOT_FOUND
 	for _, bin := range bins {
-		ki := m.bins[bin].has(key, now)
+		ki, v := m.bins[bin].has(key, now)
 		if ki != -1 {
-			v := &m.bins[bin].v(ki).val
+			v := &v.val
 
 			if casid != 0 && v.Casid != casid {
 				ret.T = EXISTS
@@ -121,10 +120,10 @@ func (m *cmap) insert(key keyt, upd Memop) (ret MemopRes) {
 	m.lock_in_order(bins...)
 	for bi, bin := range bins {
 		b := &m.bins[bin]
-		ki := b.has(key, now)
+		ki, v := b.has(key, now)
 		if ki != -1 {
 			ival.bno = bi
-			ival.val, ret = upd(b.v(ki).val, true)
+			ival.val, ret = upd(v.val, true)
 			if ret.T == STORED {
 				b.setv(ki, &ival)
 			}
@@ -207,14 +206,10 @@ func (m *cmap) get(key keyt) (ret MemopRes) {
 
 	ret.T = NOT_FOUND
 	for _, bin := range bins {
-		b := &m.bins[bin]
-		for i := 0; i < ASSOCIATIVITY; i++ {
-			s := b.v(i)
-			if s != nil && s.present(now) && bytes.Equal(s.key, key) {
-				ret.T = EXISTS
-				ret.M = &s.val
-				return
-			}
+		if _, v := m.bins[bin].has(key, now); v != nil {
+			ret.T = EXISTS
+			ret.M = &v.val
+			return
 		}
 	}
 	return
