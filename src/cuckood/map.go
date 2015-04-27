@@ -155,8 +155,6 @@ func (m *cmap) insert(key keyt, upd Memop) (ret MemopRes) {
 	for {
 		path := m.search(now, bins...)
 		if path == nil {
-			// XXX: ideally we'd do a resize here, but without
-			// locking everything...
 			return MemopRes{
 				T: SERVER_ERROR,
 				E: errors.New("no storage space found for element"),
