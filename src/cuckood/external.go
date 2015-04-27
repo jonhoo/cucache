@@ -4,6 +4,7 @@ package cuckoo
 
 import (
 	"fmt"
+	"os"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -101,7 +102,7 @@ func (c *Cuckoo) op(key []byte, upd Memop) MemopRes {
 	for res.T == SERVER_ERROR && h < MAX_HASHES {
 		sw := atomic.CompareAndSwapUint32(&m.hashes, h, h+1)
 		if sw {
-			fmt.Println("insert failed on key", key, ", so upped # hashes to", h+1)
+			fmt.Fprintln(os.Stderr, "insert failed on key", string(key), ", so upped # hashes to", h+1)
 		}
 
 		h = m.hashes
@@ -113,6 +114,8 @@ func (c *Cuckoo) op(key []byte, upd Memop) MemopRes {
 	if res.T == SERVER_ERROR && h == MAX_HASHES {
 		c.resize.Lock()
 		if c.get() == m {
+			fmt.Fprintln(os.Stderr, "insert failed on key", string(key), ", so growing hashtable to", 2*len(m.bins))
+
 			// no one else has already done a resize
 			newm := create(2 * len(m.bins))
 
