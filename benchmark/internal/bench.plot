@@ -7,12 +7,12 @@ set ylabel "us/op"
 #set y2label "MB allocated"
 set rmargin 5
 
-set arrow from 80000,1 to 80000,1e6 nohead lc rgb 'red'
-set arrow from 160000,1 to 160000,1e6 nohead lc rgb 'red'
-set arrow from 320000,1 to 320000,1e6 nohead lc rgb 'red'
-set arrow from 640000,1 to 640000,1e6 nohead lc rgb 'red'
-set arrow from 1280000,1 to 1280000,1e6 nohead lc rgb 'red'
-set arrow from 2560000,1 to 2560000,1e6 nohead lc rgb 'red'
+set arrow from (2**12)*8,1e-1 to (2**12)*8,1e7 nohead lc rgb 'red'
+set arrow from (2**13)*8,1e-1 to (2**13)*8,1e7 nohead lc rgb 'red'
+set arrow from (2**14)*8,1e-1 to (2**14)*8,1e7 nohead lc rgb 'red'
+set arrow from (2**15)*8,1e-1 to (2**15)*8,1e7 nohead lc rgb 'red'
+set arrow from (2**16)*8,1e-1 to (2**16)*8,1e7 nohead lc rgb 'red'
+set arrow from (2**17)*8,1e-1 to (2**17)*8,1e7 nohead lc rgb 'red'
 
 plot \
 	'bench.dat' u 1:($2*1000000) t 'set', \

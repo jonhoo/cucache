@@ -30,9 +30,9 @@ func TestSimple(t *testing.T) {
 }
 
 func TestMany(t *testing.T) {
-	c := cuckoo.New(1e4)
+	c := cuckoo.New(1 << 10)
 
-	for i := 0; i < 1e3; i++ {
+	for i := 0; i < 1<<9; i++ {
 		j := uint64(rand.Int63())
 		b := make([]byte, 8)
 		binary.BigEndian.PutUint64(b, j)
@@ -49,9 +49,9 @@ func TestMany(t *testing.T) {
 }
 
 func TestResize(t *testing.T) {
-	c := cuckoo.New(1e3)
+	c := cuckoo.New(1 << 9)
 
-	for i := 0; i < 1e4; i++ {
+	for i := 0; i < 1<<10; i++ {
 		j := uint64(rand.Int63())
 		b := make([]byte, 8)
 		binary.BigEndian.PutUint64(b, j)
@@ -69,7 +69,7 @@ func TestResize(t *testing.T) {
 
 func TestConcurrent(t *testing.T) {
 	runtime.GOMAXPROCS(4)
-	c := cuckoo.New(1e4)
+	c := cuckoo.New(1 << 16)
 
 	ech := make(chan bool)
 	errs := 0
@@ -81,7 +81,7 @@ func TestConcurrent(t *testing.T) {
 
 	var wg sync.WaitGroup
 	ch := make(chan int)
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < 1e3; i++ {
 		wg.Add(1)
 		go func(wid int) {
 			defer wg.Done()
@@ -109,22 +109,24 @@ func TestConcurrent(t *testing.T) {
 		}(i)
 	}
 
-	for i := 0; i < 65e3; i++ {
+	for i := 0; i < 1<<15; i++ {
 		ch <- i
 
-		if i%2e3 == 0 {
+		if i%(1<<12) == 0 {
 			fmt.Println(i)
 		}
 	}
 	close(ch)
 	wg.Wait()
 
-	fmt.Println("observed", errs, "insert errors")
+	if errs != 0 {
+		t.Error("observed", errs, "insert errors")
+	}
 }
 
 func TestSameKey(t *testing.T) {
 	runtime.GOMAXPROCS(4)
-	c := cuckoo.New(1e4)
+	c := cuckoo.New(1 << 10)
 
 	get := func() {
 		v, ok := c.Get([]byte("a"))

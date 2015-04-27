@@ -14,7 +14,7 @@ import (
 func main() {
 	cpuprofile := flag.Bool("cpuprofile", false, "CPU profile")
 	n := flag.Int("n", 10000, "Number of requests to make")
-	s := flag.Int("s", 0, "Initial db size")
+	s := flag.Uint64("s", 0, "Initial db size")
 	flag.Parse()
 
 	c := cuckoo.New(*s)

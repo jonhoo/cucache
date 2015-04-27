@@ -29,8 +29,7 @@ order of a microsecond, but some edge up towards 10us. I'm not sure why
 this second step exists..
 
 CPU profiles show that the majority of get time is spent in
-runtime.memeqbody (13.5%) for key comparisons, cuckood.present (13.5%)
-for the check of whether a bin contains a valid entry,
-atomic.LoadPointer (8%) to load the value of a bin entry, and
-cuckood.kbins (6%) for the hash computation. The MemC3 "tag" technique
-might help speed up the first three of these.
+runtime.memeqbody (11.5%) for key comparisons, cuckood.present (10.5%)
+for the check of whether a bin contains a valid entry, and
+atomic.LoadPointer (6.5%) to load the value of a bin entry. The MemC3
+"tag" technique might help speed up these.

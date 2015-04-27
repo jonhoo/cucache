@@ -14,9 +14,6 @@ Table resize (grow in particular)
     itself.
   - How should shrink be supported (if at all)?
 
-Hash table size power of two
-  - Can use & instead of %
-
 Avoid iterating over empty bins for touchall?
 
 Key tagging (from MemC3):

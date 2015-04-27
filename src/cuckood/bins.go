@@ -25,13 +25,13 @@ func (m *cmap) bin(n int, key keyt) int {
 		s ^= uint64(n >> i)
 		s *= prime64
 	}
-	return int(s % uint64(len(m.bins)))
+	return int(s & (uint64(len(m.bins)) - 1))
 }
 
 // kbins returns all hashes of the given key.
 // as m.hashes increases, this function will return more hashes.
 func (m *cmap) kbins(key keyt, into []int) {
-	nb := uint64(len(m.bins))
+	nb := uint64(len(m.bins)) - 1
 
 	// only hash the key once
 	s := offset64
@@ -47,7 +47,7 @@ func (m *cmap) kbins(key keyt, into []int) {
 			s_ ^= uint64(i >> o)
 			s_ *= prime64
 		}
-		into[i] = int(s_ % nb)
+		into[i] = int(s_ & nb)
 	}
 }
 

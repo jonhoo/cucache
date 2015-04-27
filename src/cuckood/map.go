@@ -3,12 +3,15 @@ package cuckoo
 import (
 	"errors"
 	"fmt"
+	"os"
 	"sort"
 	"time"
 )
 
+const ASSOCIATIVITY_E uint = 4
+
 // ASSOCIATIVITY is the set-associativity of each Cuckoo bin
-const ASSOCIATIVITY int = 8
+const ASSOCIATIVITY int = 1 << ASSOCIATIVITY_E
 
 // cmap holds a number of Cuckoo bins (each with room for ASSOCIATIVITY values),
 // and keeps track of the number of hashes being used.
@@ -19,7 +22,26 @@ type cmap struct {
 
 // create allocates a new Cuckoo map of the given size.
 // Two hash functions are used.
-func create(bins int) *cmap {
+func create(bins uint64) *cmap {
+	if bins == 0 {
+		panic("tried to create empty cuckoo map")
+	}
+
+	if bins&(bins-1) != 0 {
+		// unless explicitly told otherwise, we'll create a decently
+		// sized table by default
+		var shift uint64 = 1 << 10
+		for bins > shift {
+			shift <<= 1
+		}
+		bins = shift
+	}
+
+	// since each bin can hold ASSOCIATIVITY elements
+	// we don't need as many bins
+	bins >>= ASSOCIATIVITY_E
+	fmt.Fprintln(os.Stderr, "will initialize with", bins, "bins")
+
 	m := new(cmap)
 	m.bins = make([]cbin, bins)
 	m.hashes = 2
