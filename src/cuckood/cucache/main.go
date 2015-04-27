@@ -39,7 +39,7 @@ func main() {
 	udpport := flag.Int("U", 11211, "UDP port to listen on")
 	flag.Parse()
 
-	c := cuckoo.New(0)
+	c := cuckoo.New(1e5)
 
 	var pf *os.File
 	sigs := make(chan os.Signal, 1)
