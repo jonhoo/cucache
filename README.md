@@ -54,4 +54,12 @@ bottleneck.
 
 ## Experimental results
 
-See [benchmark/](benchmark/).
+cucache is currently slightly slower than memcached in terms of
+over-the-network performance simply due to Go being slower than C for
+many operations: network socket operations have more overhead, system
+calls are slower, request and response marshalling is slower, and
+goroutine scheduling and GC incur additional runtime cost. In terms of
+pure performance (i.e. direct hash table operations), cuache is probably
+significantly faster than memcached already.
+
+See [benchmark/](benchmark/) for more in-depth performance evaluation.
