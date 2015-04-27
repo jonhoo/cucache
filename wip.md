@@ -16,12 +16,6 @@ Table resize (grow in particular)
 
 Avoid iterating over empty bins for touchall?
 
-Key tagging (from MemC3):
-  - https://www.cs.cmu.edu/~dga/papers/memc3-nsdi2013.pdf
-  - With each cval, store one byte of the hash of the key ("tag")
-  - On read, first scan tags only (no indirect pointer lookup, cheap compare)
-  - Only for matching tags do key check
-
 LRU cache eviction using CLOCK (from MemC3):
   - Keep 1 bit per cval
   - Set to 1 on read

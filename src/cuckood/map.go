@@ -148,6 +148,7 @@ func (m *cmap) insert(key keyt, upd Memop) (ret MemopRes) {
 			ival.val, ret = upd(v.val, true)
 			if ret.T == STORED {
 				b.setv(ki, &ival)
+				b.vals[ki].tag = key[0]
 			}
 			m.unlock(bins...)
 			return

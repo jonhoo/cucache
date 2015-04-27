@@ -51,11 +51,16 @@ func (m *cmap) kbins(key keyt, into []int) {
 	}
 }
 
+type aval struct {
+	val unsafe.Pointer
+	tag byte
+}
+
 // cbin is a single Cuckoo map bin holding up to ASSOCIATIVITY values.
 // each bin has a lock that must be used for *writes*.
 // values should never be accessed directly, but rather through v()
 type cbin struct {
-	vals [ASSOCIATIVITY]unsafe.Pointer
+	vals [ASSOCIATIVITY]aval
 	mx   SpinLock
 }
 
@@ -64,7 +69,7 @@ type cbin struct {
 // this function is safe in the face of concurrent updates, assuming writers
 // use setv().
 func (b *cbin) v(i int) *cval {
-	return (*cval)(atomic.LoadPointer(&b.vals[i]))
+	return (*cval)(atomic.LoadPointer(&b.vals[i].val))
 }
 
 // vpresent returns true if the given slot contains unexpired key data
@@ -75,7 +80,11 @@ func (b *cbin) vpresent(i int, now time.Time) bool {
 
 // setv will atomically update the key data for the given slot
 func (b *cbin) setv(i int, v *cval) {
-	atomic.StorePointer(&b.vals[i], unsafe.Pointer(v))
+	tov := &b.vals[i]
+	if v != nil {
+		tov.tag = v.key[0]
+	}
+	atomic.StorePointer(&tov.val, unsafe.Pointer(v))
 }
 
 // subin atomically replaces the first free slot in this bin with the given key
@@ -125,11 +134,13 @@ func (b *cbin) add(val *cval, upd Memop, now time.Time) (ret MemopRes) {
 
 // has returns the slot holding the key data for the given key in this bin.
 // if no slot has the relevant key data, -1 is returned.
-func (b *cbin) has(key keyt, now time.Time) (int, *cval) {
-	for i := 0; i < ASSOCIATIVITY; i++ {
-		v := b.v(i)
-		if v != nil && v.holds(key, now) {
-			return i, v
+func (b *cbin) has(key keyt, now time.Time) (i int, v *cval) {
+	for i = 0; i < ASSOCIATIVITY; i++ {
+		if b.vals[i].tag == key[0] {
+			v = b.v(i)
+			if v != nil && v.holds(key, now) {
+				return
+			}
 		}
 	}
 	return -1, nil
