@@ -2,6 +2,8 @@ cucache has has been benchmarked on two multi-core machines thus far,
 [ben](ben/) and [tom](tom/). Results can be found by going to each of
 those directory. The former is a 40-core machine with four NUMA nodes,
 and the latter is a slower 48-core machine with eight NUMA nodes.
+Performance without the overhead of the memcache protocol and the
+loopback interface can be found in [internal](internal/).
 
 Benchmarks were performed with
 [memtier_benchmark](https://github.com/RedisLabs/memtier_benchmark) on
