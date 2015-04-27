@@ -24,12 +24,16 @@ end
 
 versions = {}
 ARGV.each do |dir|
+	base = ""
+	if File.basename(dir) =~ /^(.*)-(\d+)$/
+		base = "#{$1}-"
+	end
 	Dir.glob(File.join(dir, "*")) do |v|
 		if not File.directory? v
 			next
 		end
 
-		version = File.basename v
+		version = base + File.basename(v)
 		if not versions.include? version
 			versions[version] = []
 		end
