@@ -118,7 +118,7 @@ func wtf(req *gomem.MCRequest, v cuckoo.MemopRes) {
 	panic(fmt.Sprintf("unexpected result when handling %v: %v\n", req.Opcode, v))
 }
 
-func execute(c cuckoo.Cuckoo, in <-chan *gomem.MCRequest, out chan<- *gomem.MCResponse) {
+func execute(c *cuckoo.Cuckoo, in <-chan *gomem.MCRequest, out chan<- *gomem.MCResponse) {
 	mx := new(sync.Mutex)
 
 	for req := range in {
@@ -249,7 +249,7 @@ func parse(in_ io.Reader, out chan<- *gomem.MCRequest) {
 	close(out)
 }
 
-func setup(c cuckoo.Cuckoo, in io.Reader, out io.Writer) {
+func setup(c *cuckoo.Cuckoo, in io.Reader, out io.Writer) {
 	dispatch := make(chan *gomem.MCRequest, 50)
 	bridge := make(chan *gomem.MCResponse, 50)
 	go execute(c, dispatch, bridge)
@@ -257,7 +257,7 @@ func setup(c cuckoo.Cuckoo, in io.Reader, out io.Writer) {
 	parse(in, dispatch)
 }
 
-func replyTo(c cuckoo.Cuckoo, in []byte, to *net.UDPAddr) {
+func replyTo(c *cuckoo.Cuckoo, in []byte, to *net.UDPAddr) {
 	u, err := net.ListenPacket("udp", "127.0.0.1:0")
 	if err != nil {
 		fmt.Println(err)
@@ -273,7 +273,7 @@ func replyTo(c cuckoo.Cuckoo, in []byte, to *net.UDPAddr) {
 	}
 }
 
-func handleConnection(c cuckoo.Cuckoo, conn net.Conn) {
+func handleConnection(c *cuckoo.Cuckoo, conn net.Conn) {
 	setup(c, conn, conn)
 	conn.Close()
 }

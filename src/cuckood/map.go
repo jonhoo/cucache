@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-const ASSOCIATIVITY_E uint = 4
+const ASSOCIATIVITY_E uint = 3
 
 // ASSOCIATIVITY is the set-associativity of each Cuckoo bin
 const ASSOCIATIVITY int = 1 << ASSOCIATIVITY_E
@@ -16,8 +16,10 @@ const ASSOCIATIVITY int = 1 << ASSOCIATIVITY_E
 // cmap holds a number of Cuckoo bins (each with room for ASSOCIATIVITY values),
 // and keeps track of the number of hashes being used.
 type cmap struct {
-	bins   []cbin
-	hashes uint32
+	bins         []cbin
+	hashes       uint32
+	requestEvict chan chan struct{}
+	evicted      uint
 }
 
 // create allocates a new Cuckoo map of the given size.
@@ -40,12 +42,90 @@ func create(bins uint64) *cmap {
 	// since each bin can hold ASSOCIATIVITY elements
 	// we don't need as many bins
 	bins >>= ASSOCIATIVITY_E
+
+	if bins == 0 {
+		bins = 1
+	}
 	fmt.Fprintln(os.Stderr, "will initialize with", bins, "bins")
 
 	m := new(cmap)
 	m.bins = make([]cbin, bins)
 	m.hashes = 2
 	return m
+}
+
+func (m *cmap) enableEviction() {
+	if m.requestEvict == nil {
+		m.requestEvict = make(chan chan struct{})
+		go m.processEvictions()
+	}
+}
+
+func (m *cmap) processEvictions() {
+	var echan chan struct{}
+	now := time.Now()
+	for {
+		for i, bin := range m.bins {
+			for vi := 0; vi < ASSOCIATIVITY; vi++ {
+				v := bin.v(vi)
+				// evict should be required to actually
+				// evict an item. just because this
+				// slot is free doesn't mean there is
+				// room for a new element of a
+				// particular key!
+				if v == nil || !v.present(now) {
+					continue
+				}
+
+				// we don't evict recently read items.
+				// if they're recently read, we label
+				// them as not recently read.
+				if bin.vals[vi].read {
+					bin.vals[vi].read = false
+					continue
+				}
+
+				// we've moved to the first evictable
+				// record. now we just wait for someone
+				// to tell us to evict (unless we're
+				// already trying to evict something).
+				if echan == nil {
+					var ok bool
+					if echan, ok = <-m.requestEvict; !ok {
+						// make sure we haven't
+						// been told to
+						// terminate
+						return
+					}
+				}
+
+				// new eviction request came in! make
+				// sure we have an up-to-date time
+				// estimate -- we might have slept for
+				// a long time
+				now = time.Now()
+
+				// we now need to redo the checks under
+				// a lock to ensure the element hasn't
+				// changed. note that we need m.bins[i]
+				// here because bin is a *copy*.
+				m.bins[i].mx.Lock()
+				v = bin.v(vi)
+				if v != nil && v.present(now) && !bin.vals[vi].read {
+					//fmt.Fprintln(os.Stderr, "evicting", v.key)
+					m.bins[i].kill(vi)
+					m.evicted++
+
+					m.bins[i].mx.Unlock()
+
+					echan <- struct{}{}
+					echan = nil
+				} else {
+					m.bins[i].mx.Unlock()
+				}
+			}
+		}
+	}
 }
 
 // iterate returns a channel that contains every currently set value.
@@ -148,6 +228,7 @@ func (m *cmap) insert(key keyt, upd Memop) (ret MemopRes) {
 			ival.val, ret = upd(v.val, true)
 			if ret.T == STORED {
 				b.setv(ki, &ival)
+				b.vals[ki].read = true
 				b.vals[ki].tag = key[0]
 			}
 			m.unlock(bins...)
@@ -178,6 +259,9 @@ func (m *cmap) insert(key keyt, upd Memop) (ret MemopRes) {
 	for {
 		path := m.search(now, bins...)
 		if path == nil {
+			if m.evict() {
+				return m.insert(key, upd)
+			}
 			return MemopRes{
 				T: SERVER_ERROR,
 				E: errors.New("no storage space found for element"),
@@ -228,13 +312,24 @@ func (m *cmap) get(key keyt) (ret MemopRes) {
 
 	ret.T = NOT_FOUND
 	for _, bin := range bins {
-		if _, v := m.bins[bin].has(key, now); v != nil {
+		if i, v := m.bins[bin].has(key, now); v != nil {
+			m.bins[bin].vals[i].read = true
 			ret.T = EXISTS
 			ret.M = &v.val
 			return
 		}
 	}
 	return
+}
+
+func (m *cmap) evict() bool {
+	if m.requestEvict != nil {
+		ret := make(chan struct{})
+		m.requestEvict <- ret
+		<-ret
+		return true
+	}
+	return false
 }
 
 // lock_in_order will acquire the given locks in a fixed order that ensures

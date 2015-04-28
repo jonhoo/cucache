@@ -16,13 +16,10 @@ Table resize (grow in particular)
 
 Avoid iterating over empty bins for touchall?
 
-LRU cache eviction using CLOCK (from MemC3):
-  - Keep 1 bit per cval
-  - Set to 1 on read
-  - On evict, look at ith element:
-     - if bit is 0, evict i
-       - BE CAREFUL ABOUT CONCURRENT READS!
-     - if bit is 1, set to 0, move to i+1
+How should resizing table be traded off against evicting items?
+  - Currently a goroutine periodically checks how many items were
+    evicted during the last pass, and will resize if this exceeds a
+    threshold. This threshold needs to be tweaked.
 
 Benchmarks:
   - What is the performance as occupancy increases?

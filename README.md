@@ -23,7 +23,6 @@ protocol.
 ## Known limitations and outstanding things
 
   - Needs configurable debugging information output
-  - No support for eviction of LRU items
   - The touch command is not implemented; see [dustin/gomemcached#12](https://github.com/dustin/gomemcached/pull/12)
   - Protocol should be tested against [mctest](https://github.com/victorkirkebo/mctest)
 

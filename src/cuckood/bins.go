@@ -52,8 +52,9 @@ func (m *cmap) kbins(key keyt, into []int) {
 }
 
 type aval struct {
-	val unsafe.Pointer
-	tag byte
+	val  unsafe.Pointer
+	tag  byte
+	read bool
 }
 
 // cbin is a single Cuckoo map bin holding up to ASSOCIATIVITY values.

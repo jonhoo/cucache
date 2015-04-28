@@ -35,7 +35,7 @@ func tm(i uint32) (t time.Time) {
 	return
 }
 
-func req2res(c cuckoo.Cuckoo, req *gomem.MCRequest) (res *gomem.MCResponse) {
+func req2res(c *cuckoo.Cuckoo, req *gomem.MCRequest) (res *gomem.MCResponse) {
 	res = resP.Get().(*gomem.MCResponse)
 	res.Cas = 0
 	res.Key = nil

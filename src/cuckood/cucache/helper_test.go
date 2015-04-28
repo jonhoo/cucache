@@ -13,7 +13,7 @@ var noflag = []byte{0, 0, 0, 0}
 var noexp = []byte{0, 0, 0, 0}
 var nullset = []byte{0, 0, 0, 0, 0, 0, 0, 0}
 
-func do(c cuckoo.Cuckoo, t *testing.T, req *gomem.MCRequest) *gomem.MCResponse {
+func do(c *cuckoo.Cuckoo, t *testing.T, req *gomem.MCRequest) *gomem.MCResponse {
 	res := req2res(c, req)
 	if res.Status != gomem.SUCCESS {
 		t.Errorf("expected operation %v to succeed; got %v", req, res.Status)
@@ -21,14 +21,14 @@ func do(c cuckoo.Cuckoo, t *testing.T, req *gomem.MCRequest) *gomem.MCResponse {
 	return res
 }
 
-func get(c cuckoo.Cuckoo, key string) *gomem.MCResponse {
+func get(c *cuckoo.Cuckoo, key string) *gomem.MCResponse {
 	return req2res(c, &gomem.MCRequest{
 		Opcode: gomem.GET,
 		Key:    []byte(key),
 	})
 }
 
-func set(c cuckoo.Cuckoo, key string, val []byte, as gomem.CommandCode) *gomem.MCResponse {
+func set(c *cuckoo.Cuckoo, key string, val []byte, as gomem.CommandCode) *gomem.MCResponse {
 	return req2res(c, &gomem.MCRequest{
 		Opcode: as,
 		Key:    []byte(key),
@@ -37,7 +37,7 @@ func set(c cuckoo.Cuckoo, key string, val []byte, as gomem.CommandCode) *gomem.M
 	})
 }
 
-func pm(c cuckoo.Cuckoo, key string, by uint64, def uint64, nocreate bool, as gomem.CommandCode) *gomem.MCResponse {
+func pm(c *cuckoo.Cuckoo, key string, by uint64, def uint64, nocreate bool, as gomem.CommandCode) *gomem.MCResponse {
 	extras := make([]byte, 20)
 	binary.BigEndian.PutUint64(extras[0:8], by)
 	binary.BigEndian.PutUint64(extras[8:16], def)
@@ -52,7 +52,7 @@ func pm(c cuckoo.Cuckoo, key string, by uint64, def uint64, nocreate bool, as go
 	})
 }
 
-func assertGet(c cuckoo.Cuckoo, t *testing.T, key string, val []byte) *gomem.MCResponse {
+func assertGet(c *cuckoo.Cuckoo, t *testing.T, key string, val []byte) *gomem.MCResponse {
 	res := get(c, key)
 	if res.Status != gomem.SUCCESS {
 		t.Errorf("expected get success on key %s, got %v", key, res.Status)
@@ -62,7 +62,7 @@ func assertGet(c cuckoo.Cuckoo, t *testing.T, key string, val []byte) *gomem.MCR
 	return res
 }
 
-func assertNotExists(c cuckoo.Cuckoo, t *testing.T, key string) {
+func assertNotExists(c *cuckoo.Cuckoo, t *testing.T, key string) {
 	res := get(c, key)
 	if res.Status != gomem.KEY_ENOENT {
 		t.Errorf("expected get KEY_ENOENT on key %s, got %v", key, res.Status)
@@ -70,7 +70,7 @@ func assertNotExists(c cuckoo.Cuckoo, t *testing.T, key string) {
 	return
 }
 
-func assertSet(c cuckoo.Cuckoo, t *testing.T, key string, val []byte, as gomem.CommandCode) *gomem.MCResponse {
+func assertSet(c *cuckoo.Cuckoo, t *testing.T, key string, val []byte, as gomem.CommandCode) *gomem.MCResponse {
 	res := set(c, key, val, as)
 	if res.Status != gomem.SUCCESS {
 		t.Errorf("expected %v success for %s => %s, got %v", as, key, string(val), res.Status)
@@ -78,7 +78,7 @@ func assertSet(c cuckoo.Cuckoo, t *testing.T, key string, val []byte, as gomem.C
 	return res
 }
 
-func assertPM(c cuckoo.Cuckoo, t *testing.T, key string, by uint64, def uint64, nocreate bool, as gomem.CommandCode) *gomem.MCResponse {
+func assertPM(c *cuckoo.Cuckoo, t *testing.T, key string, by uint64, def uint64, nocreate bool, as gomem.CommandCode) *gomem.MCResponse {
 	res := pm(c, key, by, def, nocreate, as)
 	if res.Status != gomem.SUCCESS {
 		t.Errorf("expected success for %v(%d, %d, %v) on key %s, got %v", as, by, def, nocreate, key, res.Status)

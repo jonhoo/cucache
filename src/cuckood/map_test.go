@@ -159,3 +159,73 @@ func TestSameKey(t *testing.T) {
 	}()
 	wg.Wait()
 }
+
+func TestNoEvict(t *testing.T) {
+	c := cuckoo.New(uint64(cuckoo.ASSOCIATIVITY))
+
+	for i := 0; i < cuckoo.ASSOCIATIVITY; i++ {
+		res := c.Add(append([]byte("hello"), byte(i)), []byte("world"), 0, never)
+		if res.T != cuckoo.STORED {
+			t.Error("could not insert element", res)
+			return
+		}
+	}
+
+	// table should now be full
+
+	res := c.Add(append([]byte("hello"), byte(cuckoo.ASSOCIATIVITY+1)), []byte("world"), 0, never)
+	if res.T != cuckoo.STORED {
+		t.Error("table did not make room for new item")
+		return
+	}
+
+	out := 0
+	for i := 0; i < cuckoo.ASSOCIATIVITY; i++ {
+		_, ok := c.Get(append([]byte("hello"), byte(i)))
+		if !ok {
+			out++
+		}
+	}
+
+	if out != 0 {
+		t.Error(out, "items were evicted, when eviction is disabled")
+	}
+}
+
+func TestEvict(t *testing.T) {
+	c := cuckoo.New(uint64(cuckoo.ASSOCIATIVITY))
+
+	for i := 0; i < cuckoo.ASSOCIATIVITY; i++ {
+		res := c.Add(append([]byte("hello"), byte(i)), []byte("world"), 0, never)
+		if res.T != cuckoo.STORED {
+			t.Error("could not insert element", res)
+			return
+		}
+	}
+
+	// table should now be full
+	c.EnableEviction()
+
+	res := c.Add(append([]byte("hello"), byte(cuckoo.ASSOCIATIVITY+1)), []byte("world"), 0, never)
+	if res.T != cuckoo.STORED {
+		t.Error("table did not evict to make room for new item")
+		return
+	}
+
+	if c.Capacity() != uint64(cuckoo.ASSOCIATIVITY) {
+		t.Error("table was resized when eviction was possible")
+		return
+	}
+
+	out := 0
+	for i := 0; i < cuckoo.ASSOCIATIVITY; i++ {
+		_, ok := c.Get(append([]byte("hello"), byte(i)))
+		if !ok {
+			out++
+		}
+	}
+
+	if out != 1 {
+		t.Error(out, "items were evicted, when only one should have been")
+	}
+}
