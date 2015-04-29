@@ -3,7 +3,6 @@ ncores=$(lscpu | grep "^CPU(s):" | sed 's/.* //')
 scores="$1"; shift
 ccores="$1"; shift
 ((startc=ncores-ccores))
-((nc=200/ccores))
 
 if ((scores+ccores>ncores)); then
 	echo "Cannot use more server+client cores than there are CPU cores" >/dev/stderr
@@ -39,12 +38,39 @@ fi
 
 sleep 1
 
+memargs=""
+memargs="$memargs -n 20000" # lots o' requests
+
+# this number is taken out of thin air
+# if you have an good estimate, please let me know
+concurrent_clients=200
+((nc=concurrent_clients/ccores))
+memargs="$memargs -t $ccores -c $nc"
+
+# numbers below from
+# http://www.ece.eng.wayne.edu/~sjiang/pubs/papers/atikoglu12-memcached.pdf
+
+# each request has keys of ~32b, and values of ~200b
+memargs="$memargs --key-prefix trytomakekey32byteslong"
+memargs="$memargs --data-size-range=150-350"
+
+# set:get varies between 1:30 to 1:500
+memargs="$memargs --ratio 1:100"
+
+# number of keys is hard to extract from the paper, but given ~100000 req/s,
+# and ~30% unique keys, number of keys can be 0.3*100000
+memargs="$memargs --key-minimum=1"
+memargs="$memargs --key-maximum=30000"
+
+# let's say keys are roughly normal distributed.
+memargs="$memargs --key-pattern=G:G"
+
 if [ $no_numa -eq 1 ]; then
-	echo memtier_benchmark -p 2222 -P memcache_binary -n 20000 -t $ccores -c $nc
-	memtier_benchmark -p 2222 -P memcache_binary -n 20000 -t $ccores -c $nc 2>/dev/null
+	echo memtier_benchmark -p 2222 -P memcache_binary $memargs
+	memtier_benchmark -p 2222 -P memcache_binary $memargs 2>/dev/null
 else
-	echo numactl -C $startc-$endc memtier_benchmark -p 2222 -P memcache_binary -n 20000 -t $ccores -c $nc
-	numactl -C $startc-$endc memtier_benchmark -p 2222 -P memcache_binary -n 20000 -t $ccores -c $nc 2>/dev/null
+	echo numactl -C $startc-$endc memtier_benchmark -p 2222 -P memcache_binary $memargs
+	numactl -C $startc-$endc memtier_benchmark -p 2222 -P memcache_binary $memargs 2>/dev/null
 fi
 
 kill $pid
