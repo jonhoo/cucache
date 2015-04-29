@@ -62,8 +62,10 @@ memargs="$memargs --ratio 1:100"
 memargs="$memargs --key-minimum=1"
 memargs="$memargs --key-maximum=30000"
 
-# let's say keys are roughly normal distributed.
+# let's say keys are roughly normal distributed,
+# but a small number of keys (1%) are hot.
 memargs="$memargs --key-pattern=G:G"
+memargs="$memargs --key-stddev=300"
 
 if [ $no_numa -eq 1 ]; then
 	echo memtier_benchmark -p 2222 -P memcache_binary $memargs
