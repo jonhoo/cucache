@@ -6,7 +6,8 @@ Performance without the overhead of the memcache protocol and the
 loopback interface can be found in [internal](internal/).
 
 Benchmarks were performed with
-[memtier_benchmark](https://github.com/RedisLabs/memtier_benchmark) on
+[memtier_benchmark](https://github.com/RedisLabs/memtier_benchmark) and
+repeated using [experiment](https://github.com/jonhoo/experiment) on
 the same machine as the servers with all connections going over
 loopback, and using Go tip. The exact parameters used can be seen in [bench.sh](bench.sh).
 Experimental results suggest that when a real network link is used,
