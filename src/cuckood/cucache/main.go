@@ -195,6 +195,7 @@ func writeback(in <-chan *gomem.MCResponse, out_ io.Writer) {
 
 func parse(in_ io.Reader, out chan<- *gomem.MCRequest) {
 	in := bufio.NewReader(in_)
+	buf := make([]byte, gomem.HDR_LEN)
 
 	for {
 		b, err := in.Peek(1)
@@ -214,7 +215,7 @@ func parse(in_ io.Reader, out chan<- *gomem.MCRequest) {
 			req.Extras = nil
 			req.Opcode = 0
 			req.Opaque = 0
-			_, err := req.Receive(in, nil)
+			_, err := req.Receive(in, buf)
 			if err != nil {
 				if err == io.EOF {
 					reqP.Put(req)
