@@ -1,19 +1,30 @@
 #!/bin/bash
-ncores=$(lscpu | grep "^CPU(s):" | sed 's/.* //')
-scores="$1"; shift
-ccores="$1"; shift
-((startc=ncores-ccores))
+command -v numactl >/dev/null 2>&1
+no_numa=$?
 
-if ((scores+ccores>ncores)); then
-	echo "Cannot use more server+client cores than there are CPU cores" >/dev/stderr
+if [ $no_numa -eq 1 ]; then
+	echo "no numactl, so cannot force core locality; exiting..." > /dev/stderr
 	exit 1
 fi
 
-((ends=scores-1))
-((endc=ncores-1))
+scores="$1"; shift
+ccores="$1"; shift
+((needed=scores+ccores));
 
-command -v numactl >/dev/null 2>&1
-no_numa=$?
+# where are we?
+DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+
+cores=$(numactl -H | grep cpus | sed 's/.*: //' | paste -sd' ')
+cores=($cores)
+ncores=${#cores[@]}
+
+if ((needed>ncores)); then
+	echo "Cannot use more server+client cores ($needed) than there are CPU cores ($ncores)" >/dev/stderr
+	exit 1
+fi
+
+srange=$(echo ${cores[@]} | cut -d' ' -f1-${scores} | tr ' ' ',')
+crange=$(echo ${cores[@]} | rev | cut -d' ' -f1-${ccores} | rev | tr ' ' ',')
 
 args=()
 for i in "$@"; do
@@ -26,16 +37,12 @@ for i in "$@"; do
 	fi
 done
 
-if [ $no_numa -eq 1 ]; then
-	echo env GOMAXPROCS=$scores "${args[@]}" -p 2222 -U 2222
-	env GOMAXPROCS=$scores "${args[@]}" -p 2222 -U 2222 &
-	pid=$!
-else
-	echo numactl -C 0-$ends env GOMAXPROCS=$scores "${args[@]}" -p 2222 -U 2222
-	numactl -C 0-$ends env GOMAXPROCS=$scores "${args[@]}" -p 2222 -U 2222 &
-	pid=$!
-fi
+# run the server
+echo numactl -C $srange env GOMAXPROCS=$scores "${args[@]}" -p 2222 -U 2222 > /dev/stderr
+numactl -C $srange env GOMAXPROCS=$scores "${args[@]}" -p 2222 -U 2222 &
+pid=$!
 
+# let it initialize
 sleep 1
 
 memargs=""
@@ -67,13 +74,10 @@ memargs="$memargs --key-maximum=30000"
 memargs="$memargs --key-pattern=G:G"
 memargs="$memargs --key-stddev=300"
 
-if [ $no_numa -eq 1 ]; then
-	echo memtier_benchmark -p 2222 -P memcache_binary $memargs
-	memtier_benchmark -p 2222 -P memcache_binary $memargs 2>/dev/null
-else
-	echo numactl -C $startc-$endc memtier_benchmark -p 2222 -P memcache_binary $memargs
-	numactl -C $startc-$endc memtier_benchmark -p 2222 -P memcache_binary $memargs 2>/dev/null
-fi
+# run the client
+echo numactl -C $crange memtier_benchmark -p 2222 -P memcache_binary $memargs > /dev/stderr
+numactl -C $crange memtier_benchmark -p 2222 -P memcache_binary $memargs 2>/dev/null
 
-kill $pid
+# terminate the server
+kill $pid 2>/dev/null
 wait $pid 2>/dev/null
