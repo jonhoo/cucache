@@ -275,6 +275,7 @@ func replyTo(c *cuckoo.Cuckoo, in []byte, to *net.UDPAddr) {
 }
 
 func handleConnection(c *cuckoo.Cuckoo, conn net.Conn) {
+	conn.(*net.TCPConn).SetNoDelay(true)
 	setup(c, conn, conn)
 	conn.Close()
 }
