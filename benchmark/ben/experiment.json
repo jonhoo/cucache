@@ -8,23 +8,23 @@
 	"versions": {
 		"cucache-$cores": {
 			"vary": {
-				"cores": "set(1,2,4,6,8,10,12)"
+				"cores": "range(2,21,2)"
 			},
 			"arguments": [
 				"$SRC/benchmark/bench.sh",
 				"$cores",
-				"28",
+				"60",
 				"$SRC/bin/cucache"
 			]
 		},
 		"memcached-$cores": {
 			"vary": {
-				"cores": "set(1,2,4,6,8,10,12)"
+				"cores": "range(2,21,2)"
 			},
 			"arguments": [
 				"$SRC/benchmark/bench.sh",
 				"$cores",
-				"28",
+				"60",
 				"memcached",
 				"-t",
 				"SCORES"
